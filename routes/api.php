@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BingGptController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -24,11 +24,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
  */
 
 Route::namespace('Api')->group(function () {
-    //登录
-    Route::post('/auth', [AuthController::class,'auth'])->name('auth');
+    //创建会话
+    Route::get('conversation/create', [BingGptController::class,'createConversation'])->name('conversation_create');
 
-    Route::middleware('checkToken')->group(function () {
-        //退出登录
-        Route::get('/logout', [AuthController::class, 'logout']);
-    });
+    Route::post('conversation/ask', [BingGptController::class,'ask'])->name('conversation_ask');
 });
