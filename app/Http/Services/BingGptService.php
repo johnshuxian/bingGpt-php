@@ -5,6 +5,7 @@ namespace App\Http\Services;
 use App\Exceptions\BusinessException;
 use App\Helpers\ResponseEnum;
 use App\Models\BingConversations;
+use Carbon\Carbon;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -91,6 +92,29 @@ class BingGptService extends BaseService
                 ],
                 'isStartOfSession'=> false,
                 'message'         => [
+                    "locale"=> "zh-CN",
+                    "market"=> "zh-CN",
+                    "region"=> "US",
+                    "location"=> "lat:47.639557;long:-122.128159;re=1000m;",
+                    "locationHints"=> [
+                        [
+                            "country"=> "United States",
+                            "state"=> "California",
+                            "city"=> "Los Angeles",
+                            "zipcode"=> "90017",
+                            "timezoneoffset"=> -8,
+                            "dma"=> 803,
+                            "countryConfidence"=> 9,
+                            "cityConfidence"=> 8,
+                            "Center"=> [
+                            "Latitude"=> 34.0559,
+                                "Longitude"=> -118.2705
+                            ],
+                            "RegionType"=> 2,
+                            "SourceType"=> 1
+                        ]
+                    ],
+                    'timestamp'=>Carbon::now()->utc()->,
                     'author'     => 'user',
                     'inputMethod'=> 'Keyboard',
                     'text'       => $prompt,
