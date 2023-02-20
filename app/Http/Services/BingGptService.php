@@ -70,6 +70,25 @@ class BingGptService extends BaseService
                     'enablemm',
                     'dv3sugg',
                 ],
+                "allowedMessageTypes"=> [
+                    "Chat",
+                    "InternalSearchQuery",
+                    "InternalSearchResult",
+                    "InternalLoaderMessage",
+                    "RenderCardRequest",
+                    "AdsQuery",
+                    "SemanticSerp"
+                ],
+                "sliceIds"=> [
+                    "216spcevs0",
+                    "214dv3sc",
+                    "215trims0",
+                    "0113dllog",
+                    "216dloffstream",
+                    "0215cache",
+                    "0213retry",
+                    "217fcr"
+                ],
                 'isStartOfSession'=> false,
                 'message'         => [
                     'author'     => 'user',
@@ -90,7 +109,7 @@ class BingGptService extends BaseService
 
         ++self::$invocation_id;
 
-        BingConversations::where('id',$chat_id)->increment('invocation_id');
+//        BingConversations::where('id',$chat_id)->increment('invocation_id');
 
         return $info;
     }
@@ -108,16 +127,22 @@ class BingGptService extends BaseService
             'headers'      => config('bing.wss_headers'),
             'timeout'      => 50,
             'fragment_size'=> 40960,
-            'context'      => $context
+            'context'      => $context,
+//            'persistent'   =>true,
         ]);
 
         $client->text(self::messageIdentifier(['protocol'=>'json', 'version'=>1]));
+
+        while(!$client->isConnected()){
+            if(time()-$ping>=10){
+                break;
+            }
+        }
 
         //ping
         $client->text(self::messageIdentifier(['type'=>6]));
 
         $client->text(self::messageIdentifier(self::updateWss($prompt, $chat_id)));
-//        Log::info(self::messageIdentifier(self::updateWss($prompt, $chat_id)));
 
         $end = false;
 
@@ -131,13 +156,14 @@ class BingGptService extends BaseService
             try {
                 $info = $client->receive();
 
-                $message = json_decode(preg_replace('/}.*$/', '}', $info), true);
+                $message = json_decode(preg_replace('//', '', $info), true);
 
                 Log::info($info);
+                Log::info($message);
 
                 if ($message) {
 
-                    if(isset($message['type']) && $message['type'] == 7){
+                    if(isset($message['error'])){
                         return $this->fail(ResponseEnum::CLIENT_NOT_FOUND_HTTP_ERROR,$message['error']);
                     }
 
@@ -160,7 +186,11 @@ class BingGptService extends BaseService
                                 }
                             }
                         }
+
+                        return $this->success($response);
                     }
+                }else{
+                    $client->text(self::messageIdentifier(['type'=>6]));
                 }
 
                 if (time() - $ping >= 30) {
