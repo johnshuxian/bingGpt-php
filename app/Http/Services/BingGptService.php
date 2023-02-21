@@ -58,9 +58,10 @@ class BingGptService extends BaseService
         if (is_array($json)) {
             $json = json_encode($json, JSON_UNESCAPED_UNICODE);
         }
-        Log::info($json . (config('bing')['end'] ?? "\x1e"));
 
-        return $json . (config('bing')['end'] ?? "\x1e");
+        Log::info(trim($json . "\x1e"));
+
+        return $json . "\x1e";
     }
 
     private static function updateWss($prompt, $chat_id)
@@ -68,66 +69,34 @@ class BingGptService extends BaseService
         $conversation = self::conversation($chat_id);
 
         return [
-            'arguments'   => [
-                'source'     => 'cib',
-                'optionsSets'=> [
-                    'nlu_direct_response_filter',
-                    'deepleo',
-                    'enable_debug_commands',
-                    'disable_emoji_spoken_text',
-                    'responsible_ai_policy_235',
-                    'enablemm',
-                    'dv3sugg',
-                ],
-                'allowedMessageTypes'=> [
-                    'Chat',
-                    'InternalSearchQuery',
-                    'InternalSearchResult',
-                    'InternalLoaderMessage',
-                    'RenderCardRequest',
-                    'AdsQuery',
-                    'SemanticSerp',
-                ],
-                'sliceIds'        => [],
-                'isStartOfSession'=> 0 == self::$invocation_id,
-                'message'         => [
-                    'locale'       => 'zh-CN',
-                    'market'       => 'zh-CN',
-                    'region'       => 'US',
-                    'location'     => 'lat:47.639557;long:-122.128159;re=1000m;',
-                    'locationHints'=> [
-                        [
-                            'country'          => 'United States',
-                            'state'            => 'California',
-                            'city'             => 'Los Angeles',
-                            'zipcode'          => '90017',
-                            'timezoneoffset'   => -8,
-                            'dma'              => 803,
-                            'countryConfidence'=> 9,
-                            'cityConfidence'   => 8,
-                            'Center'           => [
-                                'Latitude' => 34.0559,
-                                'Longitude'=> -118.2705,
-                            ],
-                            'RegionType'=> 2,
-                            'SourceType'=> 1,
-                        ],
+            'arguments' => [
+                 [
+                    'source'      => 'cib',
+                    'optionsSets' => [
+                        'nlu_direct_response_filter',
+                        'deepleo',
+                        'enable_debug_commands',
+                        'disable_emoji_spoken_text',
+                        'responsible_ai_policy_235',
+                        'enablemm',
                     ],
-                    'timestamp'  => Carbon::now()->toRfc3339String(),
-                    'author'     => 'user',
-                    'inputMethod'=> 'Keyboard',
-                    'text'       => $prompt,
-                    'messageType'=> 'chat',
+                    'isStartOfSession' => 0 === self::$invocation_id,
+                    'message'          => [
+                        'author'      => 'user',
+                        'inputMethod' => 'Keyboard',
+                        'text'        => $prompt,
+                        'messageType' => 'Chat',
+                    ],
+                    'conversationSignature' => $conversation->conversation_signature,
+                    'participant'           => [
+                        'id' => $conversation->client_id,
+                    ],
+                    'conversationId' => $conversation->conversation_id,
                 ],
-                'conversationSignature'=> $conversation->conversation_signature,
-                'participant'          => [
-                    'id'=> $conversation->client_id,
-                ],
-                'conversationId'=> $conversation->conversation_id,
             ],
-            'invocationId'=> (string) self::$invocation_id,
-            'target'      => 'chat',
-            'type'        => 4,
+            'invocationId' => "0",
+            'target'       => 'chat',
+            'type'         => 4,
         ];
     }
 
@@ -140,23 +109,16 @@ class BingGptService extends BaseService
         stream_context_set_option($context, 'ssl', 'verify_peer_name', false);
 
         $client = new Client('wss://sydney.bing.com/sydney/ChatHub', [
-            'headers'      => config('bing.wss_headers'),
+            'headers'      => config('bing.headers'),
             'timeout'      => 120,
-            'fragment_size'=> 40960,
+            'fragment_size'=> 409600,
             'context'      => $context,
             //            'logger'       => Log::channel('daily'),
-            //            'persistent'   =>true,
+            //            'persistent'   => true,
         ]);
-
-        while (!$client->isConnected()) {
-            if (time() - $ping >= 5) {
-                break;
-            }
-        }
 
         $client->text(self::messageIdentifier(['protocol'=>'json', 'version'=>1]));
 
-        //ping
         $client->text(self::messageIdentifier(['type'=>6]));
 
         $client->text(self::messageIdentifier(self::updateWss($prompt, $chat_id)));
@@ -171,22 +133,30 @@ class BingGptService extends BaseService
 
         while (!$end) {
             try {
+//                if(!$client->isConnected()){
+//                    $client->text(self::messageIdentifier(['protocol'=>'json', 'version'=>1]));
+//                }
+
                 $info = $client->receive();
 
-                $message = json_decode(preg_replace('/\\x1e/', '', $info), true);
+                $info = explode("\x1e", $info);
 
-                Log::info($info);
+                Log::info('receive:', $info);
+
+                $message = json_decode($info[0] ?? '', true);
+
+                Log::info('message:', $message);
 
                 if ($message) {
-                    /*                    if (isset($message['type']) && 7 == $message['type'] && ($message['allowReconnect'] ?? false) && $key <= 3) {
-                    //                        return $this->connectWss($prompt, $chat_id, ++$key);
-                                        }*/
-
                     if (isset($message['error'])) {
                         return $this->fail(ResponseEnum::CLIENT_NOT_FOUND_HTTP_ERROR, $message['error']);
                     }
 
                     if (isset($message['type']) && 2 == $message['type']) {
+                        if (!isset($message['item']['messages'])) {
+                            return $this->fail(ResponseEnum::CLIENT_NOT_FOUND_HTTP_ERROR, $message['item']['result']['message']);
+                        }
+
                         $response[] = $message['item']['messages'][1]['text'];
 
                         $end = true;
@@ -213,7 +183,6 @@ class BingGptService extends BaseService
                         return $this->success($response);
                     }
                 }
-                $client->text(self::messageIdentifier(['type'=>6]));
 
                 if (time() - $ping >= 30) {
                     $client->text(self::messageIdentifier(['type'=>6]));

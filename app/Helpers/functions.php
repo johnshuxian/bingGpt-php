@@ -28,7 +28,7 @@ if (!function_exists('getUuid')) {
 if (!function_exists('forwardedIp')) {
     function forwardedIp()
     {
-        return '13.' . rand(104, 107) . rand(0, 255) . rand(0, 255);
+        return '13.' . rand(104, 107) . '.' . rand(0, 255) . '.' . rand(0, 255);
     }
 }
 
