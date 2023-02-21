@@ -117,35 +117,27 @@ class BingGptService extends BaseService
             //            'persistent'   => true,
         ]);
 
-        $client->text(self::messageIdentifier(['protocol'=>'json', 'version'=>1]));
-
-        $client->text(self::messageIdentifier(['type'=>6]));
-
-        $client->text(self::messageIdentifier(self::updateWss($prompt, $chat_id)));
-
-        $end = false;
+        $this->handshark($client,$prompt,$chat_id);
 
         $response = [
-            'user'          => '',
+            'ask'           => '',
             'answer'        => '',
             'adaptive_cards'=> '',
         ];
 
-        while (!$end) {
+        while (true) {
             try {
-//                if(!$client->isConnected()){
-//                    $client->text(self::messageIdentifier(['protocol'=>'json', 'version'=>1]));
-//                }
+                if(!$client->isConnected()){
+                    $this->handshark($client,$prompt,$chat_id);
+                }
 
                 $info = $client->receive();
 
+                Log::info($info);
+
                 $info = explode("\x1e", $info);
 
-                Log::info('receive:', $info);
-
                 $message = json_decode($info[0] ?? '', true);
-
-                Log::info('message:', $message);
 
                 if ($message) {
                     if (isset($message['error'])) {
@@ -157,10 +149,6 @@ class BingGptService extends BaseService
                             return $this->fail(ResponseEnum::CLIENT_NOT_FOUND_HTTP_ERROR, $message['item']['result']['message']);
                         }
 
-                        $response[] = $message['item']['messages'][1]['text'];
-
-                        $end = true;
-
                         foreach ($message['item']['messages'] as $answer) {
                             if (!isset($answer['messageType'])) {
                                 if ('bot' == $answer['author']) {
@@ -168,10 +156,14 @@ class BingGptService extends BaseService
                                     $response['answer']         = $answer['text'];
                                     $response['adaptive_cards'] = $answer['adaptiveCards'][0]['body'][0]['text'] ?? '';
 
+                                    ++self::$invocation_id;
+
+                                    BingConversations::where('id', $chat_id)->increment('invocation_id');
+
                                     return $this->success($response);
                                 }
                                 if ('user' == $answer['author']) {
-                                    $response['user'] = $answer['text'];
+                                    $response['ask'] = $answer['text'];
                                 }
                             }
                         }
@@ -195,8 +187,15 @@ class BingGptService extends BaseService
                 // Possibly log errors
             }
         }
+    }
 
-        return $this->success($response);
+    private function handshark(Client $client,string $prompt, $chat_id)
+    {
+        $client->text(self::messageIdentifier(['protocol'=>'json', 'version'=>1]));
+
+        $client->text(self::messageIdentifier(['type'=>6]));
+
+        $client->text(self::messageIdentifier(self::updateWss($prompt, $chat_id)));
     }
 
     public function createConversation()
