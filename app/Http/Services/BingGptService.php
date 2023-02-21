@@ -59,8 +59,6 @@ class BingGptService extends BaseService
             $json = json_encode($json, JSON_UNESCAPED_UNICODE);
         }
 
-        Log::info(trim($json . "\x1e"));
-
         return $json . "\x1e";
     }
 

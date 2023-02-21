@@ -27,21 +27,5 @@ return [
         //        'Referer'                    => 'https=>//www.bing.com/search?q=Bing+AI&showconv=1&FORM=hpcodx',
         'Referrer-Policy'            => 'origin-when-cross-origin',
         'x-forwarded-for'            => $ip,
-    ],
-    'wss_headers'=> [
-        //        'Http'                    => '1.1',
-        //        'Host'                    => 'sydney.bing.com',
-        'Connection'              => 'Upgrade',
-        //        'Pragma'                  => 'no-cache',
-        //        'Cache-Control'           => 'no-cache',
-        'User-Agent'              => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.49',
-        'Upgrade'                 => 'websocket',
-        'Origin'                  => 'https://www.bing.com',
-        'Sec-WebSocket-Version'   => '13',
-        //        'Accept-Encoding'         => 'gzip, deflate, br',
-        //        'Accept-Language'         => 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
-        'x-forwarded-for'         => $ip,
-        //        'Sec-WebSocket-Key'       => 'JIPdqQ3KJyJYoG03x09vUg==',
-        'Sec-WebSocket-Extensions'=> 'permessage-deflate; client_max_window_bits',
-    ],
+    ]
 ];
