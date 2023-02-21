@@ -15,6 +15,6 @@ class BingConversations extends Model
 
     public static function record($data)
     {
-        self::updateOrCreate($data,$data);
+        return self::updateOrCreate($data,$data);
     }
 }

@@ -14,6 +14,13 @@ use WebSocket\Client;
 
 class BingGptService extends BaseService
 {
+    public function __construct()
+    {
+        parent::__construct();
+
+        set_time_limit(0);
+    }
+
     protected static $invocation_id;
 
     protected static $conversation = [];
@@ -51,15 +58,16 @@ class BingGptService extends BaseService
         if (is_array($json)) {
             $json = json_encode($json, JSON_UNESCAPED_UNICODE);
         }
+        Log::info($json . (config('bing')['end'] ?? "\x1e"));
 
-        return $json . (config('bing')['end'] ?? '');
+        return $json . (config('bing')['end'] ?? "\x1e");
     }
 
     private static function updateWss($prompt, $chat_id)
     {
         $conversation = self::conversation($chat_id);
 
-        $info = [
+        return [
             'arguments'   => [
                 'source'     => 'cib',
                 'optionsSets'=> [
@@ -71,50 +79,41 @@ class BingGptService extends BaseService
                     'enablemm',
                     'dv3sugg',
                 ],
-                "allowedMessageTypes"=> [
-                    "Chat",
-                    "InternalSearchQuery",
-                    "InternalSearchResult",
-                    "InternalLoaderMessage",
-                    "RenderCardRequest",
-                    "AdsQuery",
-                    "SemanticSerp"
+                'allowedMessageTypes'=> [
+                    'Chat',
+                    'InternalSearchQuery',
+                    'InternalSearchResult',
+                    'InternalLoaderMessage',
+                    'RenderCardRequest',
+                    'AdsQuery',
+                    'SemanticSerp',
                 ],
-                "sliceIds"=> [
-                    "216spcevs0",
-                    "214dv3sc",
-                    "215trims0",
-                    "0113dllog",
-                    "216dloffstream",
-                    "0215cache",
-                    "0213retry",
-                    "217fcr"
-                ],
-                'isStartOfSession'=> false,
+                'sliceIds'        => [],
+                'isStartOfSession'=> 0 == self::$invocation_id,
                 'message'         => [
-                    "locale"=> "zh-CN",
-                    "market"=> "zh-CN",
-                    "region"=> "US",
-                    "location"=> "lat:47.639557;long:-122.128159;re=1000m;",
-                    "locationHints"=> [
+                    'locale'       => 'zh-CN',
+                    'market'       => 'zh-CN',
+                    'region'       => 'US',
+                    'location'     => 'lat:47.639557;long:-122.128159;re=1000m;',
+                    'locationHints'=> [
                         [
-                            "country"=> "United States",
-                            "state"=> "California",
-                            "city"=> "Los Angeles",
-                            "zipcode"=> "90017",
-                            "timezoneoffset"=> -8,
-                            "dma"=> 803,
-                            "countryConfidence"=> 9,
-                            "cityConfidence"=> 8,
-                            "Center"=> [
-                            "Latitude"=> 34.0559,
-                                "Longitude"=> -118.2705
+                            'country'          => 'United States',
+                            'state'            => 'California',
+                            'city'             => 'Los Angeles',
+                            'zipcode'          => '90017',
+                            'timezoneoffset'   => -8,
+                            'dma'              => 803,
+                            'countryConfidence'=> 9,
+                            'cityConfidence'   => 8,
+                            'Center'           => [
+                                'Latitude' => 34.0559,
+                                'Longitude'=> -118.2705,
                             ],
-                            "RegionType"=> 2,
-                            "SourceType"=> 1
-                        ]
+                            'RegionType'=> 2,
+                            'SourceType'=> 1,
+                        ],
                     ],
-                    'timestamp'=>Carbon::now()->utc()->,
+                    'timestamp'  => Carbon::now()->toRfc3339String(),
                     'author'     => 'user',
                     'inputMethod'=> 'Keyboard',
                     'text'       => $prompt,
@@ -126,19 +125,13 @@ class BingGptService extends BaseService
                 ],
                 'conversationId'=> $conversation->conversation_id,
             ],
-            'invocationId'=> self::$invocation_id,
+            'invocationId'=> (string) self::$invocation_id,
             'target'      => 'chat',
             'type'        => 4,
         ];
-
-        ++self::$invocation_id;
-
-//        BingConversations::where('id',$chat_id)->increment('invocation_id');
-
-        return $info;
     }
 
-    public function connectWss(string $prompt, $chat_id)
+    public function connectWss(string $prompt, $chat_id, $key = 0)
     {
         $ping = time();
 
@@ -146,22 +139,22 @@ class BingGptService extends BaseService
         stream_context_set_option($context, 'ssl', 'verify_peer', false);
         stream_context_set_option($context, 'ssl', 'verify_peer_name', false);
 
-
         $client = new Client('wss://sydney.bing.com/sydney/ChatHub', [
             'headers'      => config('bing.wss_headers'),
-            'timeout'      => 50,
+            'timeout'      => 120,
             'fragment_size'=> 40960,
             'context'      => $context,
-//            'persistent'   =>true,
+            //            'logger'       => Log::channel('daily'),
+            //            'persistent'   =>true,
         ]);
 
-        $client->text(self::messageIdentifier(['protocol'=>'json', 'version'=>1]));
-
-        while(!$client->isConnected()){
-            if(time()-$ping>=10){
+        while (!$client->isConnected()) {
+            if (time() - $ping >= 5) {
                 break;
             }
         }
+
+        $client->text(self::messageIdentifier(['protocol'=>'json', 'version'=>1]));
 
         //ping
         $client->text(self::messageIdentifier(['type'=>6]));
@@ -180,15 +173,17 @@ class BingGptService extends BaseService
             try {
                 $info = $client->receive();
 
-                $message = json_decode(preg_replace('//', '', $info), true);
+                $message = json_decode(preg_replace('/\\x1e/', '', $info), true);
 
                 Log::info($info);
-                Log::info($message);
 
                 if ($message) {
+                    /*                    if (isset($message['type']) && 7 == $message['type'] && ($message['allowReconnect'] ?? false) && $key <= 3) {
+                    //                        return $this->connectWss($prompt, $chat_id, ++$key);
+                                        }*/
 
-                    if(isset($message['error'])){
-                        return $this->fail(ResponseEnum::CLIENT_NOT_FOUND_HTTP_ERROR,$message['error']);
+                    if (isset($message['error'])) {
+                        return $this->fail(ResponseEnum::CLIENT_NOT_FOUND_HTTP_ERROR, $message['error']);
                     }
 
                     if (isset($message['type']) && 2 == $message['type']) {
@@ -211,11 +206,14 @@ class BingGptService extends BaseService
                             }
                         }
 
+                        ++self::$invocation_id;
+
+                        BingConversations::where('id', $chat_id)->increment('invocation_id');
+
                         return $this->success($response);
                     }
-                }else{
-                    $client->text(self::messageIdentifier(['type'=>6]));
                 }
+                $client->text(self::messageIdentifier(['type'=>6]));
 
                 if (time() - $ping >= 30) {
                     $client->text(self::messageIdentifier(['type'=>6]));
@@ -255,7 +253,9 @@ class BingGptService extends BaseService
 
             unset($json['result']);
 
-            BingConversations::record(dataConvert($json));
+            $record = BingConversations::record(dataConvert($json));
+
+            $json['chatId'] = $record->id;
 
             return $this->success($json);
         } catch (ConnectionException $e) {
