@@ -139,7 +139,7 @@ class BingGptService extends BaseService
                 if ($message) {
                     if (isset($message['error'])) {
                         if ($return_array) {
-                            return ['code'=>0, 'error'=>$message['error']];
+                            return ['code'=>0, 'message'=>$message['error']];
                         }
 
                         return $this->fail(ResponseEnum::CLIENT_NOT_FOUND_HTTP_ERROR, $message['error']);
@@ -148,7 +148,7 @@ class BingGptService extends BaseService
                     if (isset($message['type']) && 2 == $message['type']) {
                         if (!isset($message['item']['messages'])) {
                             if ($return_array) {
-                                return ['code'=>0, 'error'=>$message['item']['result']['message']];
+                                return ['code'=>0, 'message'=>$message['item']['result']['message']];
                             }
 
                             return $this->fail(ResponseEnum::CLIENT_NOT_FOUND_HTTP_ERROR, $message['item']['result']['message']);
@@ -166,7 +166,7 @@ class BingGptService extends BaseService
                                     BingConversations::where('id', $chat_id)->increment('invocation_id');
 
                                     if ($return_array) {
-                                        return ['code'=>1, 'error'=>'', 'data'=>$response];
+                                        return ['code'=>1, 'message'=>'', 'data'=>$response];
                                     }
 
                                     return $this->success($response);
@@ -182,7 +182,7 @@ class BingGptService extends BaseService
                         BingConversations::where('id', $chat_id)->increment('invocation_id');
 
                         if ($return_array) {
-                            return ['code'=>1, 'error'=>'', 'data'=>$response];
+                            return ['code'=>1, 'message'=>'', 'data'=>$response];
                         }
 
                         return $this->success($response);
@@ -200,20 +200,24 @@ class BingGptService extends BaseService
                     $ping = time();
                 }
 
-                if (time() - $start >= 60) {
+                if (time() - $start >= 120) {
                     //超时仍未返回，返回最近的type 1的内容
                     ++self::$invocation_id;
 
                     BingConversations::where('id', $chat_id)->increment('invocation_id');
 
                     if ($return_array) {
-                        return ['code'=>1, 'error'=>'', 'data'=>$response];
+                        return ['code'=>1, 'message'=>'', 'data'=>$response];
                     }
 
                     return $this->success($response);
                 }
             } catch (\WebSocket\ConnectionException $e) {
                 Log::info($e->getMessage());
+
+                if ($return_array) {
+                    return ['code'=>0, 'message'=>$e->getMessage()];
+                }
 
                 return $this->success($response);
                 // Possibly log errors
@@ -243,7 +247,7 @@ class BingGptService extends BaseService
                 Log::error('gpt', ['code'=>$status_code, 'msg'=>$response->body()]);
 
                 if ($return_array) {
-                    return ['code'=>0, 'error'=>'Authentication failed,please replace the cookie'];
+                    return ['code'=>0, 'message'=>'Authentication failed,please replace the cookie'];
                 }
 
                 return $this->fail([$status_code, 'Authentication failed']);
@@ -253,7 +257,7 @@ class BingGptService extends BaseService
 
             if ('UnauthorizedRequest' == $json['result']['value']) {
                 if ($return_array) {
-                    return ['code'=>0, 'error'=>'Authentication failed,please replace the cookie'];
+                    return ['code'=>0, 'message'=>'Authentication failed,please replace the cookie'];
                 }
 
                 return $this->fail([$status_code, 'Authentication failed']);
@@ -266,19 +270,19 @@ class BingGptService extends BaseService
             $json['chatId'] = $record->id;
 
             if ($return_array) {
-                return ['code'=>1, 'error'=>'', 'data'=>$json];
+                return ['code'=>1, 'message'=>'', 'data'=>$json];
             }
 
             return $this->success($json);
         } catch (ConnectionException $e) {
             if ($return_array) {
-                return ['code'=>0, 'error'=>'connect timeout'];
+                return ['code'=>0, 'message'=>'connect timeout'];
             }
 
             return $this->fail([$e->getCode(), 'connect timeout']);
         } catch (RequestException $e) {
             if ($return_array) {
-                return ['code'=>0, 'error'=>$e->getMessage()];
+                return ['code'=>0, 'message'=>$e->getMessage()];
             }
 
             return $this->fail([$e->getCode(), $e->getMessage()]);

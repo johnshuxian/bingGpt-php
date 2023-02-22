@@ -3,6 +3,7 @@
 namespace App\Http\Services;
 
 use App\Models\TelegramChat;
+use GuzzleHttp\Exception\ConnectException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -47,6 +48,10 @@ class TelegramService extends BaseService
             Log::info($e->getResponse()->getBody()->getContents());
 
             return ['code' => 0, 'message' => $e->getMessage()];
+        } catch (ConnectException $e){
+            Log::info($e->getMessage());
+
+            return ['code' => 0, 'message' => $e->getMessage()];
         }
     }
 
@@ -81,7 +86,7 @@ class TelegramService extends BaseService
                     $json = BingGptService::getInstance()->createConversation(true);
 
                     if (!$json['code']) {
-                        return self::sendTelegram($json['error'], $params['message']['chat']['id']);
+                        return self::sendTelegram($json['message'], $params['message']['chat']['id']);
                     }
 
                     $chat_id = $json['data']['chatId'];
@@ -119,6 +124,8 @@ class TelegramService extends BaseService
                         self::sendTelegram(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text), $params['message']['chat']['id']);
                     }
                 }
+
+                self::sendTelegram($json['message'], $params['message']['chat']['id']);
             }
         }
 
