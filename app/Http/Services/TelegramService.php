@@ -3,7 +3,6 @@
 namespace App\Http\Services;
 
 use App\Models\TelegramChat;
-use GuzzleHttp\Exception\ConnectException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -48,7 +47,7 @@ class TelegramService extends BaseService
             Log::info($e->getResponse()->getBody()->getContents());
 
             return ['code' => 0, 'message' => $e->getMessage()];
-        } catch (ConnectException $e){
+        } catch (\Exception $e) {
             Log::info($e->getMessage());
 
             return ['code' => 0, 'message' => $e->getMessage()];

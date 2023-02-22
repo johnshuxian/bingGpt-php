@@ -70,11 +70,11 @@ class BingGptService extends BaseService
                 [
                     'source'      => 'cib',
                     'optionsSets' => [
-                        'nlu_direct_response_filter',
+//                        'nlu_direct_response_filter',
                         'deepleo',
                         'enable_debug_commands',
                         'disable_emoji_spoken_text',
-                        'responsible_ai_policy_235',
+//                        'responsible_ai_policy_235',
                         'enablemm',
                     ],
                     'isStartOfSession' => 0 === self::$invocation_id,
