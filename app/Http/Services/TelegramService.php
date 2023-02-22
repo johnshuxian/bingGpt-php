@@ -59,7 +59,7 @@ class TelegramService extends BaseService
         if (!isset($params['message']['text'])) {
             $text = '我支持回复文字消息哦';
         } else {
-            if ('private' == $params['message']['chat']['type'] || ($params['message']['reply_to_message']['from']['username'] ?? '') == $bot_name) {
+            if ('private' == $params['message']['chat']['type'] || ($params['message']['reply_to_message']['from']['username'] ?? '') == $bot_name || (preg_match("/@{$bot_name}/", $params['message']['text']))) {
                 $text = $params['message']['text'];
 
                 $text = trim(preg_replace("/@{$bot_name}/", '', $text));
@@ -116,7 +116,7 @@ class TelegramService extends BaseService
                             true
                         );
 
-                        self::sendTelegram($text, $params['message']['chat']['id']);
+                        self::sendTelegram(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text), $params['message']['chat']['id']);
                     }
                 }
             }
