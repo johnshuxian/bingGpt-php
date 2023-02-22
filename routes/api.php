@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\BingGptController;
+use App\Http\Controllers\Api\TelegramController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -28,4 +29,7 @@ Route::namespace('Api')->group(function () {
     Route::get('conversation/create', [BingGptController::class,'createConversation'])->name('conversation_create');
 
     Route::post('conversation/ask', [BingGptController::class,'ask'])->name('conversation_ask');
+
+    Route::any('telegram/ai', [TelegramController::class,'ai'])->name('telegram_bing');
+
 });
