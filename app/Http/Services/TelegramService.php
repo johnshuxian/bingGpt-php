@@ -207,7 +207,7 @@ class TelegramService extends BaseService
                         return self::sendTelegram('已手动结束本轮对话', $params['message']['chat']['id']);
                     }
 
-                    $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/ask', $arr);
+                    $response = Http::acceptJson()->timeout(300)->post('http://127.0.0.1:8000/ask', $arr);
 
                     $json = $response->json();
 
