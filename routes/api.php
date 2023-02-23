@@ -30,6 +30,8 @@ Route::namespace('Api')->group(function () {
 
     Route::post('conversation/ask', [BingGptController::class,'ask'])->name('conversation_ask');
 
-    Route::any('telegram/ai', [TelegramController::class,'ai'])->name('telegram_bing');
+    Route::any('telegram/ai', [TelegramController::class,'ai'])->name('telegram_ai');
+
+    Route::any('telegram/bing', [TelegramController::class,'bing'])->name('telegram_bing');
 
 });

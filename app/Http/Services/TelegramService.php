@@ -10,6 +10,21 @@ use Illuminate\Support\Facades\Log;
 
 class TelegramService extends BaseService
 {
+    /**
+     * @var mixed|string
+     */
+    private static mixed $bot_token;
+    /**
+     * @var mixed|string
+     */
+    private static mixed $bot_name;
+
+    public static function bot($token = '', $name = '')
+    {
+        self::$bot_token = $token ?: env('TELEGRAM_BOT_TOKEN');
+        self::$bot_name  = $name ?: env('TELEGRAM_BOT_NAME');
+    }
+
     public function getFile($file_id)
     {
         try {
@@ -17,7 +32,7 @@ class TelegramService extends BaseService
                 'file_id' => $file_id,
             ];
 
-            $response = Http::withoutVerifying()->acceptJson()->timeout(5)->post('https://api.telegram.org/' . env('TELEGRAM_BOT_TOKEN') . '/getFile', $answer);
+            $response = Http::withoutVerifying()->acceptJson()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/getFile', $answer);
 
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -42,7 +57,7 @@ class TelegramService extends BaseService
                 $answer['caption'] = $prompt;
             }
 
-            $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . env('TELEGRAM_BOT_TOKEN') . '/' . $method[$type], $answer);
+            $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/' . $method[$type], $answer);
 
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -56,14 +71,18 @@ class TelegramService extends BaseService
         }
     }
 
-    public function telegram(array $params, $method = 'bingGpt')
+    public function telegram(array $params, $method = 'bingGpt', $token='', $name = '')
     {
+        self::bot($token, $name);
+
+//        Log::info('info: ', ['token'=>self::$bot_token, 'name'=>self::$bot_name]);
+
         return self::$method($params);
     }
 
     private static function bingGpt($params)
     {
-        $bot_name = env('TELEGRAM_BOT_NAME');
+        $bot_name = self::$bot_name;
 
         $chat = new TelegramChat();
 
@@ -80,13 +99,14 @@ class TelegramService extends BaseService
 
                     TelegramChat::where([
                         'telegram_chat_id' => $params['message']['chat']['id'],
+                        'username'         => self::$bot_name,
                         'recycle'          => 0,
                     ])->update(['recycle' => 1]);
 
                     return self::sendTelegram('已手动结束本轮对话', $params['message']['chat']['id']);
                 }
 
-                $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id']);
+                $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], self::$bot_name);
 
                 if (!$chat_id) {
                     $json = BingGptService::getInstance()->createConversation(true);
@@ -140,7 +160,7 @@ class TelegramService extends BaseService
 
     private static function chatGpt(array $params)
     {
-        $bot_name = env('TELEGRAM_BOT_NAME');
+        $bot_name = self::$bot_name;
 
         $chat = new TelegramChat();
 
@@ -154,7 +174,7 @@ class TelegramService extends BaseService
 
                 $username = $params['message']['from']['username'] ?? ($params['message']['from']['first_name'] . '-' . $params['message']['from']['last_name']);
 
-                $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], false);
+                $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], self::$bot_name, false);
 
                 $arr = [
                     'prompt'=> $text,
@@ -171,9 +191,29 @@ class TelegramService extends BaseService
                 }
 
                 try {
+                    if (preg_match('/^ok$/i', $text) && isset($arr['conversation_id'])) {
+                        //手动结束对话
+
+                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
+                            'conversation_id'=> $arr['conversation_id'],
+                        ]);
+
+                        TelegramChat::where([
+                            'telegram_chat_id' => $params['message']['chat']['id'],
+                            'username'         => self::$bot_name,
+                            'recycle'          => 0,
+                        ])->update(['recycle' => 1]);
+
+                        return self::sendTelegram('已手动结束本轮对话', $params['message']['chat']['id']);
+                    }
+
                     $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/ask', $arr);
 
                     $json = $response->json();
+
+                    if (!isset($json['response'])) {
+                        return self::sendTelegram($response->body(), $params['message']['chat']['id']);
+                    }
 
                     $gpt = 0;
 
@@ -203,8 +243,32 @@ class TelegramService extends BaseService
 
                     self::sendTelegram($json['response'], $params['message']['chat']['id']);
                 } catch (BadResponseException $exception) {
+                    if (isset($arr['conversation_id'])) {
+                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
+                            'conversation_id'=> $arr['conversation_id'],
+                        ]);
+
+                        TelegramChat::where([
+                            'telegram_chat_id' => $params['message']['chat']['id'],
+                            'recycle'          => 0,
+                        ])->update(['recycle' => 1]);
+                    }
+
                     self::sendTelegram($exception->getResponse()->getBody(), $params['message']['chat']['id']);
                 } catch (\Exception $exception) {
+                    Log::info($exception->getMessage() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
+                    Log::info('info:', $json ?? []);
+                    if (isset($arr['conversation_id'])) {
+                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
+                            'conversation_id'=> $arr['conversation_id'],
+                        ]);
+
+                        TelegramChat::where([
+                            'telegram_chat_id' => $params['message']['chat']['id'],
+                            'recycle'          => 0,
+                        ])->update(['recycle' => 1]);
+                    }
+
                     self::sendTelegram($exception->getMessage(), $params['message']['chat']['id']);
                 }
 
