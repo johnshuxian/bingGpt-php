@@ -21,7 +21,7 @@ class BingGpt implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 120;
+    public int $timeout = 360;
 
     /**
      * Create a new job instance.

@@ -212,7 +212,7 @@ class BingGptService extends BaseService
                     $ping = time();
                 }
 
-                if (time() - $start >= 120) {
+                if (time() - $start >= 360) {
                     //超时仍未返回，返回最近的type 1的内容
                     ++self::$invocation_id;
 
