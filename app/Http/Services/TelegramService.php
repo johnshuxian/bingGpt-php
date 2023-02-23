@@ -2,7 +2,9 @@
 
 namespace App\Http\Services;
 
+use App\Models\ChatConversations;
 use App\Models\TelegramChat;
+use GuzzleHttp\Exception\BadResponseException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -54,7 +56,12 @@ class TelegramService extends BaseService
         }
     }
 
-    public function telegram(array $params)
+    public function telegram(array $params, $method = 'bingGpt')
+    {
+        return self::$method($params);
+    }
+
+    private static function bingGpt($params)
     {
         $bot_name = env('TELEGRAM_BOT_NAME');
 
@@ -125,6 +132,83 @@ class TelegramService extends BaseService
                 }
 
                 self::sendTelegram($json['message'], $params['message']['chat']['id']);
+            }
+        }
+
+        return 200;
+    }
+
+    private static function chatGpt(array $params)
+    {
+        $bot_name = env('TELEGRAM_BOT_NAME');
+
+        $chat = new TelegramChat();
+
+        if (!isset($params['message']['text'])) {
+            $text = '我支持回复文字消息哦';
+        } else {
+            if ('private' == $params['message']['chat']['type'] || ($params['message']['reply_to_message']['from']['username'] ?? '') == $bot_name || (preg_match("/@{$bot_name}/", $params['message']['text']))) {
+                $text = $params['message']['text'];
+
+                $text = trim(preg_replace("/@{$bot_name}/", '', $text));
+
+                $username = $params['message']['from']['username'] ?? ($params['message']['from']['first_name'] . '-' . $params['message']['from']['last_name']);
+
+                $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], false);
+
+                $arr = [
+                    'prompt'=> $text,
+                ];
+
+                if ($chat_id) {
+                    $gpt = ChatConversations::select('conversation_id', 'parent_id')->where('id', $chat_id)->first();
+
+                    if ($gpt) {
+                        $arr = array_merge($arr, $gpt->toArray());
+                    } else {
+                        $chat_id = 0;
+                    }
+                }
+
+                try {
+                    $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/ask', $arr);
+
+                    $json = $response->json();
+
+                    $gpt = 0;
+
+                    if (isset($json['data']['conversation_id'])) {
+                        $gpt = ChatConversations::record($json['data']['conversation_id'], $json['data']['parent_id'] ?? 0);
+
+                        $gpt = $gpt->id;
+                    }
+
+                    $chat->record(
+                        $username,
+                        $text,
+                        $params['message']['chat']['id'],
+                        $gpt,
+                        $params['message']['chat']['type'],
+                        $params['message']['from']['is_bot']
+                    );
+
+                    $chat->record(
+                        $bot_name,
+                        $json['response'],
+                        $params['message']['chat']['id'],
+                        $gpt,
+                        $params['message']['chat']['type'],
+                        true
+                    );
+
+                    self::sendTelegram($json['response'], $params['message']['chat']['id']);
+                } catch (BadResponseException $exception) {
+                    self::sendTelegram($exception->getResponse()->getBody(), $params['message']['chat']['id']);
+                } catch (\Exception $exception) {
+                    self::sendTelegram($exception->getMessage(), $params['message']['chat']['id']);
+                }
+
+                return 200;
             }
         }
 

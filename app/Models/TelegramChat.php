@@ -15,9 +15,13 @@ class TelegramChat extends Model
 
     protected $table = 'telegram_records';
 
-    public static function getLastChatId($telegram_chat_id)
+    public static function getLastChatId($telegram_chat_id,$last_hour = true)
     {
-        return DB::table('telegram_records')->where(['recycle'=>0])->where('telegram_chat_id',$telegram_chat_id)->where('created_at','>=',Carbon::now()->addHours(-1)->toDateTimeString())->orderBy('id','desc')->limit(1)->value('chat_id')??0;
+        return DB::table('telegram_records')->where(['recycle'=>0])->where('telegram_chat_id',$telegram_chat_id)->where(function($q)use($last_hour){
+            if($last_hour){
+                $q->where('created_at','>=',Carbon::now()->addHours(-1)->toDateTimeString());
+            }
+        })->orderBy('id','desc')->limit(1)->value('chat_id')??0;
     }
 
     public function record($username,$content,$telegram_chat_id,$chat_id = 0,$chat_type = 'private',$is_bot = false)
