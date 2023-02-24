@@ -125,13 +125,15 @@ class BingGptService extends BaseService
         while (true) {
             try {
                 if (!$client->isConnected()) {
+                    if (!$response['answer']) {
+                        $this->handshark($client, $prompt, $chat_id);
+
+                        continue;
+                    }
+
                     ++self::$invocation_id;
 
                     BingConversations::where('id', $chat_id)->increment('invocation_id');
-
-                    if (!$response['answer']) {
-                        $this->handshark($client, $prompt, $chat_id);
-                    }
 
                     if ($return_array) {
                         return ['code'=>1, 'message'=>'', 'data'=>$response];
@@ -202,8 +204,22 @@ class BingGptService extends BaseService
 
                     if (isset($message['type']) && 1 == $message['type']) {
                         $response['ask']            = $prompt;
-                        $response['answer']         = $response['answer']?:($message['arguments'][0]['message'][0]['text'] ?? 'bing超时未正常返回答案');
+                        $response['answer']         = $response['answer'] ?: ($message['arguments'][0]['message'][0]['text'] ?? 'bing超时未正常返回答案');
                         $response['adaptive_cards'] = $message['arguments'][0]['message'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
+                    }
+
+                    if (isset($message['type']) && 7 == $message['type']) {
+                        if ($response['answer']) {
+                            ++self::$invocation_id;
+
+                            BingConversations::where('id', $chat_id)->increment('invocation_id');
+
+                            if ($return_array) {
+                                return ['code'=>1, 'message'=>'', 'data'=>$response];
+                            }
+
+                            return $this->success($response);
+                        }
                     }
                 }
 
