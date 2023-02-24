@@ -202,7 +202,7 @@ class BingGptService extends BaseService
 
                     if (isset($message['type']) && 1 == $message['type']) {
                         $response['ask']            = $prompt;
-                        $response['answer']         = $message['arguments'][0]['message'][0]['text'] ?? 'bing超时未正常返回答案';
+                        $response['answer']         = $response['answer']?:($message['arguments'][0]['message'][0]['text'] ?? 'bing超时未正常返回答案');
                         $response['adaptive_cards'] = $message['arguments'][0]['message'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
                     }
                 }
