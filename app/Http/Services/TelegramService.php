@@ -132,8 +132,7 @@ class TelegramService extends BaseService
                 $json = BingGptService::getInstance()->ask($text, $chat_id, true);
 
                 if ($json['code']) {
-
-                    Log::info('Human: '.$text);
+                    Log::info($username . ': ' . $text);
 
                     foreach (['answer', 'adaptive_cards'] as $key) {
                         $text = $json['data'][$key];
@@ -150,7 +149,7 @@ class TelegramService extends BaseService
                             true
                         );
 
-                        Log::info('bot: '.preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text));
+                        Log::info(self::$bot_name . ': ' . preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text));
 
                         self::sendTelegram(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text), $params['message']['chat']['id']);
                     }
@@ -245,9 +244,9 @@ class TelegramService extends BaseService
                         $params['message']['chat']['type'],
                         true
                     );
-                    Log::info('Human: '.$text);
+                    Log::info($username . ': ' . $text);
 
-                    Log::info('bot: '.$json['response']);
+                    Log::info(self::$bot_name . ': ' . $json['response']);
 
                     self::sendTelegram($json['response'], $params['message']['chat']['id']);
                 } catch (BadResponseException $exception) {

@@ -148,8 +148,6 @@ class BingGptService extends BaseService
 
                 $message = json_decode($info[0] ?? '', true);
 
-                Log::info(json_encode($message));
-
                 if ($message) {
                     if (isset($message['error'])) {
                         if ($return_array) {
@@ -204,8 +202,8 @@ class BingGptService extends BaseService
 
                     if (isset($message['type']) && 1 == $message['type']) {
                         $response['ask']            = $prompt;
-                        $response['answer']         = $response['answer'] ?: ($message['arguments'][0]['message'][0]['text'] ?? 'bing超时未正常返回答案');
-                        $response['adaptive_cards'] = $message['arguments'][0]['message'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
+                        $response['answer']         = $message['arguments'][0]['messages'][0]['text'] ?? 'bing超时未正常返回答案';
+                        $response['adaptive_cards'] = $message['arguments'][0]['messages'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
                     }
 
                     if (isset($message['type']) && 7 == $message['type']) {
