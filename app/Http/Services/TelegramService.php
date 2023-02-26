@@ -134,28 +134,20 @@ class TelegramService extends BaseService
                 if ($json['code']) {
                     Log::info($username . ': ' . $text);
 
-                    foreach (['answer', 'adaptive_cards'] as $key) {
-                        $text = $json['data'][$key];
-
-                        if ('adaptive_cards' == $key && $json['data'][$key] == $json['data']['answer']) {
-                            return 200;
-                        }
-                        $chat->record(
-                            $bot_name,
-                            $text,
-                            $params['message']['chat']['id'],
-                            $chat_id,
-                            $params['message']['chat']['type'],
-                            true
-                        );
-
-                        Log::info(self::$bot_name . ': ' . preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text));
-
-                        self::sendTelegram(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text), $params['message']['chat']['id']);
+                    if($json['data']['answer'] == $json['data']['adaptive_cards']){
+                        $json['data']['adaptive_cards'] = '';
                     }
+
+                    $json['data']['adaptive_cards'] = str_replace($json['data']['answer'],'',$json['data']['adaptive_cards']);
+
+                    $text = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']).PHP_EOL.$json['data']['adaptive_cards'];
+
+                    Log::info(self::$bot_name . ': ' . $text);
+
+                    return self::sendTelegram(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text), $params['message']['chat']['id']);
                 }
 
-                self::sendTelegram($json['message'], $params['message']['chat']['id']);
+                self::sendTelegram($json['message']??'', $params['message']['chat']['id']);
             }
         }
 
