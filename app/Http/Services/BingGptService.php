@@ -204,6 +204,12 @@ class BingGptService extends BaseService
                         $response['ask']            = $prompt;
                         $response['answer']         = $message['arguments'][0]['messages'][0]['text'] ?? 'bing超时未正常返回答案';
                         $response['adaptive_cards'] = $message['arguments'][0]['messages'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
+
+//                        $last = $message['arguments'][count($message['arguments']) - 1]['messages'][0]['text'] ?? '';
+//
+//                        if ($last) {
+//                            TelegramService::sendOrUpdate($last);
+//                        }
                     }
 
                     if (isset($message['type']) && 7 == $message['type']) {

@@ -18,6 +18,8 @@ class TelegramService extends BaseService
      * @var mixed|string
      */
     private static mixed $bot_name;
+    public static int $last_message_id = 0;
+    private static $chat_id            = '';
 
     public static function bot($token = '', $name = '')
     {
@@ -58,6 +60,29 @@ class TelegramService extends BaseService
             }
 
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/' . $method[$type], $answer);
+
+            return ['code' => 1, 'message' => '', 'data' => $response->json()];
+        } catch (\GuzzleHttp\Exception\BadResponseException $e) {
+            Log::info($e->getResponse()->getBody()->getContents());
+
+            return ['code' => 0, 'message' => $e->getMessage()];
+        } catch (\Exception $e) {
+            Log::info($e->getMessage());
+
+            return ['code' => 0, 'message' => $e->getMessage()];
+        }
+    }
+
+    public static function updateTelegram($content, $telegram_chat_id, $message_id): array
+    {
+        try {
+            $answer = [
+                'chat_id'   => $telegram_chat_id,
+                'message_id'=> $message_id,
+                'text'      => $content,
+            ];
+
+            $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/editMessageText', $answer);
 
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -129,18 +154,20 @@ class TelegramService extends BaseService
                     $params['message']['from']['is_bot']
                 );
 
+                self::$chat_id = $params['message']['chat']['id'];
+
                 $json = BingGptService::getInstance()->ask($text, $chat_id, true);
 
                 if ($json['code']) {
                     Log::info($username . ': ' . $text);
 
-                    if($json['data']['answer'] == $json['data']['adaptive_cards']){
+                    if ($json['data']['answer'] == $json['data']['adaptive_cards']) {
                         $json['data']['adaptive_cards'] = '';
                     }
 
-                    $json['data']['adaptive_cards'] = str_replace($json['data']['answer'],'',$json['data']['adaptive_cards']);
+                    $json['data']['adaptive_cards'] = str_replace($json['data']['answer'], '', $json['data']['adaptive_cards']);
 
-                    $text = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']).PHP_EOL.$json['data']['adaptive_cards'];
+                    $text = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']) . PHP_EOL . $json['data']['adaptive_cards'];
 
                     Log::info(self::$bot_name . ': ' . $text);
 
@@ -156,7 +183,7 @@ class TelegramService extends BaseService
                     return self::sendTelegram(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text), $params['message']['chat']['id']);
                 }
 
-                self::sendTelegram($json['message']??'', $params['message']['chat']['id']);
+                return self::sendTelegram($json['message'] ?? '', $params['message']['chat']['id']);
             }
         }
 
@@ -285,5 +312,18 @@ class TelegramService extends BaseService
         }
 
         return 200;
+    }
+
+    public static function sendOrUpdate($content, $type = 'text')
+    {
+        if (!self::$last_message_id) {
+            $data = self::sendTelegram($content, self::$chat_id, $type);
+
+            self::$last_message_id = $data['data']['result']['message_id'] ?? 0;
+        } else {
+            $data = self::updateTelegram($content, self::$chat_id, self::$last_message_id);
+        }
+
+        return $data;
     }
 }
