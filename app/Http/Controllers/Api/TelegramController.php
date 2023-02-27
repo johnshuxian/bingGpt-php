@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class TelegramController extends Controller
 {
-    public function ai(Request $request)
+    public function ai(Request $request, $method)
     {
         if ($request->all()) {
             $params = $request->all();
@@ -19,36 +19,23 @@ class TelegramController extends Controller
                 return 200;
             }
 
-            if(!in_array($params['message']['from']['id'],config('telegram.auth'))){
-                return 200;
-            }
-
             Log::info(json_encode($params));
 
-            dispatch(new ChatGpt($params));
-
-            return 200;
-        }
-
-        return 200;
-    }
-
-    public function bing(Request $request)
-    {
-        if ($request->all()) {
-            $params = $request->all();
-
-            if (!isset($params['message'])) {
+            if (!in_array($params['message']['from']['id'], config('telegram.auth'))) {
                 return 200;
             }
 
-            if(!in_array($params['message']['from']['id'],config('telegram.auth'))){
-                return 200;
+            switch ($method) {
+                case 'ai'://chatGpt 机器人
+                    dispatch(new ChatGpt($params));
+
+                    break;
+
+               case 'bing'://bingGpt机器人
+                    dispatch(new BingGpt($params));
+
+                    break;
             }
-
-            Log::info(json_encode($params));
-
-            dispatch(new BingGpt($params));
 
             return 200;
         }
