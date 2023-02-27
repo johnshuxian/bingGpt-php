@@ -180,7 +180,8 @@ class TelegramService extends BaseService
                         true
                     );
 
-                    return self::sendTelegram(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text), $params['message']['chat']['id']);
+                    return self::sendOrUpdate(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text));
+//                    return self::sendTelegram(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text), $params['message']['chat']['id']);
                 }
 
                 return self::sendTelegram($json['message'] ?? '', $params['message']['chat']['id']);
@@ -239,6 +240,10 @@ class TelegramService extends BaseService
                         return self::sendTelegram('已手动结束本轮对话', $params['message']['chat']['id']);
                     }
 
+                    self::$chat_id = $params['message']['chat']['id'];
+
+                    self::sendOrUpdate('稍等，回答正在生成中...'.PHP_EOL.'若长时间没有回复，可发送\'再发一次\'重新获取');
+
                     $response = Http::acceptJson()->timeout(300)->post('http://127.0.0.1:8000/ask', $arr);
 
                     $json = $response->json();
@@ -276,7 +281,8 @@ class TelegramService extends BaseService
 
                     Log::info(self::$bot_name . ': ' . $json['response']);
 
-                    self::sendTelegram($json['response'], $params['message']['chat']['id']);
+                    self::sendOrUpdate($json['response']);
+//                    self::sendTelegram($json['response'], $params['message']['chat']['id']);
                 } catch (BadResponseException $exception) {
                     if (isset($arr['conversation_id'])) {
                         $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
