@@ -144,6 +144,15 @@ class TelegramService extends BaseService
 
                     Log::info(self::$bot_name . ': ' . $text);
 
+                    $chat->record(
+                        self::$bot_name,
+                        $text,
+                        $params['message']['chat']['id'],
+                        $chat_id,
+                        $params['message']['chat']['type'],
+                        true
+                    );
+
                     return self::sendTelegram(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text), $params['message']['chat']['id']);
                 }
 
