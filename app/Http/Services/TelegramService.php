@@ -131,7 +131,7 @@ class TelegramService extends BaseService
                     return self::sendTelegram('已手动结束本轮对话', $params['message']['chat']['id']);
                 }
 
-                $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], self::$bot_name);
+                $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], self::$bot_name, true, 'bing_id');
 
                 if (!$chat_id) {
                     $json = BingGptService::getInstance()->createConversation(true);
@@ -145,14 +145,16 @@ class TelegramService extends BaseService
 
                 $username = $params['message']['from']['username'] ?? ($params['message']['from']['first_name'] . '-' . $params['message']['from']['last_name']);
 
-                $chat->record(
-                    $username,
-                    $text,
-                    $params['message']['chat']['id'],
-                    $chat_id,
-                    $params['message']['chat']['type'],
-                    $params['message']['from']['is_bot']
-                );
+                //['telegram_chat_id'=>$telegram_chat_id,'chat_id'=>$chat_id,'chat_type'=>$chat_type,'content'=>$content,'username'=>$username,'is_bot'=>$is_bot?1:0]
+                //$username,$content,$telegram_chat_id,$chat_id = 0,$chat_type = 'private',$is_bot = false
+                $chat->record([
+                    'username'        => $username,
+                    'content'         => $text,
+                    'telegram_chat_id'=> $params['message']['chat']['id'],
+                    'bing_id'         => $chat_id,
+                    'chat_type'       => $params['message']['chat']['type'],
+                    'is_bot'          => $params['message']['from']['is_bot'] ? 1 : 0,
+                ]);
 
                 self::$chat_id = $params['message']['chat']['id'];
 
@@ -167,20 +169,20 @@ class TelegramService extends BaseService
 
                     $json['data']['adaptive_cards'] = str_replace($json['data']['answer'], '', $json['data']['adaptive_cards']);
 
-                    $text = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']) . PHP_EOL . $json['data']['adaptive_cards'];
+                    $text = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['adaptive_cards'])?:preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']);
 
                     Log::info(self::$bot_name . ': ' . $text);
 
-                    $chat->record(
-                        self::$bot_name,
-                        $text,
-                        $params['message']['chat']['id'],
-                        $chat_id,
-                        $params['message']['chat']['type'],
-                        true
-                    );
+                    $chat->record([
+                        'username'        => self::$bot_name,
+                        'content'         => $text,
+                        'telegram_chat_id'=> $params['message']['chat']['id'],
+                        'bing_id'         => $chat_id,
+                        'chat_type'       => $params['message']['chat']['type'],
+                        'is_bot'          => 1,
+                    ]);
 
-                    return self::sendTelegram(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $text), $params['message']['chat']['id']);
+                    return self::sendTelegram($text, $params['message']['chat']['id']);
                 }
 
                 return self::sendTelegram($json['message'] ?? '', $params['message']['chat']['id']);
@@ -255,23 +257,23 @@ class TelegramService extends BaseService
                         $gpt = $gpt->id;
                     }
 
-                    $chat->record(
-                        $username,
-                        $text,
-                        $params['message']['chat']['id'],
-                        $gpt,
-                        $params['message']['chat']['type'],
-                        $params['message']['from']['is_bot']
-                    );
+                    $chat->record([
+                        'username'        => $username,
+                        'content'         => $text,
+                        'telegram_chat_id'=> $params['message']['chat']['id'],
+                        'chat_id'         => $gpt,
+                        'chat_type'       => $params['message']['chat']['type'],
+                        'is_bot'          => $params['message']['from']['is_bot'] ? 1 : 0,
+                    ]);
 
-                    $chat->record(
-                        $bot_name,
-                        $json['response'],
-                        $params['message']['chat']['id'],
-                        $gpt,
-                        $params['message']['chat']['type'],
-                        true
-                    );
+                    $chat->record([
+                        'username'        => self::$bot_name,
+                        'content'         => $json['response'],
+                        'telegram_chat_id'=> $params['message']['chat']['id'],
+                        'chat_id'         => $gpt,
+                        'chat_type'       => $params['message']['chat']['type'],
+                        'is_bot'          => 1,
+                    ]);
                     Log::info($username . ': ' . $text);
 
                     Log::info(self::$bot_name . ': ' . $json['response']);
@@ -303,6 +305,114 @@ class TelegramService extends BaseService
                             'recycle'          => 0,
                         ])->update(['recycle' => 1]);
                     }
+
+                    self::sendTelegram($exception->getMessage(), $params['message']['chat']['id']);
+                }
+
+                return 200;
+            }
+        }
+
+        return 200;
+    }
+
+    private static function gpt3(array $params)
+    {
+        $bot_name = self::$bot_name;
+
+        $chat = new TelegramChat();
+
+        if (!isset($params['message']['text'])) {
+            $text = '我支持回复文字消息哦';
+        } else {
+            if ('private' == $params['message']['chat']['type'] || ($params['message']['reply_to_message']['from']['username'] ?? '') == $bot_name || (preg_match("/@{$bot_name}/", $params['message']['text']))) {
+                $text = $params['message']['text'];
+
+                $text = trim(preg_replace("/@{$bot_name}/", '', $text));
+
+                $username = $params['message']['from']['username'] ?? ($params['message']['from']['first_name'] . '-' . $params['message']['from']['last_name']);
+
+                $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], self::$bot_name, true);
+
+                $arr = [
+                    ['role'=>'system', 'content'=>'You are very helpful, knowledgeable, and also a great English translator. You tackle our questions with patience and provide detailed explanations, making you a master of English translation.'],
+                ];
+
+                if ($chat_id) {
+                    $records = TelegramChat::getRecords($chat_id, 'chat_id');
+
+                    foreach ($records as $record) {
+                        if ($record->is_bot) {
+                            //机器人
+                            $arr[] =  ['role'=>'system', 'content'=>$record->content];
+                        } else {
+                            //人类
+                            $arr[] =  ['role'=>'user', 'content'=>$record->content];
+                        }
+                    }
+                } else {
+                    $gpt = ChatConversations::record(getUuid(), getUuid());
+
+                    $chat_id = $gpt->id;
+                }
+
+                try {
+                    if (preg_match('/^ok$/i', $text)) {
+                        //手动结束对话
+
+                        TelegramChat::where([
+                            'telegram_chat_id' => $params['message']['chat']['id'],
+                            'username'         => self::$bot_name,
+                            'recycle'          => 0,
+                        ])->update(['recycle' => 1]);
+
+                        return self::sendTelegram('已手动结束本轮对话', $params['message']['chat']['id']);
+                    }
+
+                    $arr[] = ['role'=>'user', 'content'=>$text];
+
+                    $response = Http::acceptJson()->withHeaders(
+                        ['Authorization' => 'Bearer ' . env('GPT3_TOKEN')]
+                    )->timeout(300)->post('https://api.openai.com/v1/chat/completions', [
+                        'model'      => 'gpt-3.5-turbo',
+                        'messages'   => $arr,
+                        'temperature'=> 1.2,
+                        //                        'stop'  => [' Human:', ' AI:'],
+                    ]);
+
+                    $json = $response->json();
+
+                    $chat->record([
+                        'username'        => $username,
+                        'content'         => $text,
+                        'telegram_chat_id'=> $params['message']['chat']['id'],
+                        'chat_id'         => $chat_id,
+                        'chat_type'       => $params['message']['chat']['type'],
+                        'is_bot'          => $params['message']['from']['is_bot'] ? 1 : 0,
+                    ]);
+
+                    $chat->record([
+                        'username'        => self::$bot_name,
+                        'content'         => $json['choices'][0]['message']['content'],
+                        'telegram_chat_id'=> $params['message']['chat']['id'],
+                        'chat_id'         => $chat_id,
+                        'chat_type'       => $params['message']['chat']['type'],
+                        'is_bot'          => 1,
+                    ]);
+                    Log::info($username . ': ' . $text);
+
+                    Log::info(self::$bot_name . ': ' . $json['choices'][0]['message']['content']);
+
+                    $tokens = $json['usage']['total_tokens'];
+
+                    $text = '该轮会话剩余可用字数: ' . (4096 - $tokens) . PHP_EOL . $json['choices'][0]['message']['content'];
+
+                    self::sendTelegram($text, $params['message']['chat']['id']);
+                } catch (BadResponseException $exception) {
+                    self::sendTelegram($exception->getResponse()->getBody(), $params['message']['chat']['id']);
+                } catch (\Exception $exception) {
+                    Log::info($exception->getMessage() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
+                    Log::info('info:', $json ?? []);
 
                     self::sendTelegram($exception->getMessage(), $params['message']['chat']['id']);
                 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\BingGpt;
 use App\Jobs\ChatGpt;
+use App\Jobs\Gpt3;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -33,6 +34,11 @@ class TelegramController extends Controller
 
                case 'bing'://bingGpt机器人
                     dispatch(new BingGpt($params));
+
+                    break;
+
+               case 'gpt':
+                    dispatch(new Gpt3($params));
 
                     break;
             }
