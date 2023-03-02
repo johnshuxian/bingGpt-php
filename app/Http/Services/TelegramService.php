@@ -169,7 +169,11 @@ class TelegramService extends BaseService
 
                     $json['data']['adaptive_cards'] = str_replace($json['data']['answer'], '', $json['data']['adaptive_cards']);
 
-                    $text = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['adaptive_cards'])?:preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']);
+                    $adaptive_cards = trim(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['adaptive_cards']));
+
+                    $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']);
+
+                    $text = $adaptive_cards?:$answer;
 
                     Log::info(self::$bot_name . ': ' . $text);
 
@@ -182,7 +186,7 @@ class TelegramService extends BaseService
                         'is_bot'          => 1,
                     ]);
 
-                    return self::sendTelegram($text, $params['message']['chat']['id']);
+                    return self::sendOrUpdate($text);
                 }
 
                 return self::sendTelegram($json['message'] ?? '', $params['message']['chat']['id']);
