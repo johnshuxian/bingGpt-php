@@ -173,7 +173,7 @@ class TelegramService extends BaseService
 
                     $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']);
 
-                    $text = $adaptive_cards?:$answer;
+                    $text = '(' . $json['data']['numUserMessagesInConversation'] . '/' . $json['data']['maxNumUserMessagesInConversation'] . ')' . PHP_EOL . ($adaptive_cards ?: $answer);
 
                     Log::info(self::$bot_name . ': ' . $text);
 
@@ -247,7 +247,7 @@ class TelegramService extends BaseService
 
                     self::$chat_id = $params['message']['chat']['id'];
 
-                    self::sendOrUpdate('tips: 若长时间没有回复，可发送\'再发一次\'重新获取'.PHP_EOL.'稍等，回答正在生成中...');
+                    self::sendOrUpdate('tips: 若长时间没有回复，可发送\'再发一次\'重新获取' . PHP_EOL . '稍等，回答正在生成中...');
 
                     $response = Http::acceptJson()->timeout(300)->post('http://127.0.0.1:8000/ask', $arr);
 
@@ -351,7 +351,7 @@ class TelegramService extends BaseService
                     foreach ($records as $record) {
                         if ($record->is_bot) {
                             //机器人
-                            $arr[] =  ['role'=>'system', 'content'=>$record->content];
+                            $arr[] =  ['role'=>'assistant', 'content'=>$record->content];
                         } else {
                             //人类
                             $arr[] =  ['role'=>'user', 'content'=>$record->content];
@@ -383,7 +383,7 @@ class TelegramService extends BaseService
                     )->timeout(300)->post('https://api.openai.com/v1/chat/completions', [
                         'model'      => 'gpt-3.5-turbo',
                         'messages'   => $arr,
-                        'temperature'=> 1.2,
+                        'temperature'=> 1,
                         //                        'stop'  => [' Human:', ' AI:'],
                     ]);
 

@@ -117,9 +117,11 @@ class BingGptService extends BaseService
         $this->handshark($client, $prompt, $chat_id);
 
         $response = [
-            'ask'           => '',
-            'answer'        => '',
-            'adaptive_cards'=> '',
+            'ask'                             => '',
+            'answer'                          => '',
+            'adaptive_cards'                  => '',
+            'maxNumUserMessagesInConversation'=> 0,
+            'numUserMessagesInConversation'   => 0,
         ];
 
         $index = 0;
@@ -168,6 +170,9 @@ class BingGptService extends BaseService
                             return $this->fail(ResponseEnum::CLIENT_NOT_FOUND_HTTP_ERROR, $message['item']['result']['message']);
                         }
 
+                        $response['maxNumUserMessagesInConversation'] = $message['item']['throttling']['maxNumUserMessagesInConversation'] ?? 0;
+                        $response['numUserMessagesInConversation']    = $message['item']['throttling']['numUserMessagesInConversation'] ?? 0;
+
                         foreach ($message['item']['messages'] as $answer) {
                             if (!isset($answer['messageType'])) {
                                 if ('bot' == $answer['author']) {
@@ -210,7 +215,7 @@ class BingGptService extends BaseService
 
                         $last = $message['arguments'][count($message['arguments']) - 1]['messages'][0]['text'] ?? '';
 
-                        if ($index == 1) {
+                        if (1 == $index) {
                             TelegramService::sendOrUpdate('稍等，回答正在生成中...');
                         }
                     }
