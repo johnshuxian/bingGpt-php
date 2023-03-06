@@ -7,6 +7,7 @@ use App\Models\TelegramChat;
 use GuzzleHttp\Exception\BadResponseException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 
 class TelegramService extends BaseService
 {
@@ -247,7 +248,7 @@ class TelegramService extends BaseService
 
                     self::$chat_id = $params['message']['chat']['id'];
 
-                    self::sendOrUpdate('tips: 若长时间没有回复，可发送\'再发一次\'重新获取' . PHP_EOL . '稍等，回答正在生成中...');
+                    self::sendOrUpdate('tips: 若长时间没有回复，请重新询问' . PHP_EOL . '稍等，回答正在生成中...');
 
                     $response = Http::acceptJson()->timeout(300)->post('http://127.0.0.1:8000/ask', $arr);
 
@@ -300,7 +301,7 @@ class TelegramService extends BaseService
 //                        ])->update(['recycle' => 1]);
 //                    }
 
-                    return self::sendTelegram($exception->getResponse()->getBody(), $params['message']['chat']['id']);
+                    return self::sendOrUpdate($exception->getResponse()->getBody());
                 } catch (\Exception $exception) {
                     Log::info($exception->getMessage() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
                     Log::info('info:', $json ?? []);
@@ -315,7 +316,7 @@ class TelegramService extends BaseService
 //                        ])->update(['recycle' => 1]);
 //                    }
 
-                    return self::sendTelegram($exception->getMessage(), $params['message']['chat']['id']);
+                    return self::sendOrUpdate($exception->getMessage());
                 }
             }
         }

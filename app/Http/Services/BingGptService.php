@@ -255,6 +255,12 @@ class BingGptService extends BaseService
             } catch (\WebSocket\ConnectionException $e) {
                 Log::info($e->getMessage());
 
+                ++$key;
+
+                if ($key <= 2) {
+                    return $this->connectWss($prompt, $chat_id, $return_array, $key);
+                }
+
                 if ($return_array) {
                     return ['code'=>0, 'message'=>$e->getMessage()];
                 }
