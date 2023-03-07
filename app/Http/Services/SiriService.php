@@ -48,6 +48,11 @@ class SiriService extends BaseService
 
             $json = GptService::getInstance()->gpt3($system, $chat_id, $text, $token);
 
+            if(isset($json['error']['message'])){
+                Log::info(self::$bot_name . ': ' . $json['error']['message']);
+                return $json['error']['message'];
+            }
+
             $chat->record([
                 'username'        => 'johns',
                 'content'         => $text,

@@ -362,6 +362,10 @@ class TelegramService extends BaseService
 
                     $json = GptService::getInstance()->gpt3('You are very helpful, knowledgeable, and also a great English translator. You tackle our questions with patience and provide detailed explanations, making you a master of English translation.',$chat_id,$text);
 
+                    if(isset($json['error']['message'])){
+                        return self::sendTelegram($json['error']['message'], $params['message']['chat']['id']);
+                    }
+
                     $chat->record([
                         'username'        => $username,
                         'content'         => $text,
