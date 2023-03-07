@@ -4,12 +4,15 @@ namespace App\Http\Services;
 
 use App\Models\TelegramChat;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class GptService extends BaseService
 {
     public function gpt3($system, $chat_id, $prompt, $token='')
     {
         $token = $token ?: env('GPT3_TOKEN');
+
+        Log::info('gpt请求中：'.$prompt);
 
         $records = TelegramChat::getRecords($chat_id, 'chat_id');
 
