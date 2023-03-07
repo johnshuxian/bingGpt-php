@@ -18,12 +18,14 @@ class SiriService extends BaseService
         parent::__construct();
     }
 
-    public function siri($siri_id,$text)
+    public function siri($siri_id, $text, $token = '',$system = '')
     {
         $chat_id = TelegramChat::getLastChatId($siri_id, self::$bot_name, true);
 
+        $system = $system?:'可靠的生活小助手，耐心，会非常详细的回答我的问题';
+
         if (!$chat_id) {
-            $gpt = ChatConversations::record(getUuid(), getUuid());
+            $gpt     = ChatConversations::record(getUuid(), getUuid());
             $chat_id = $gpt->id;
         }
 
@@ -44,7 +46,7 @@ class SiriService extends BaseService
                 return '已手动结束本轮对话';
             }
 
-            $json = GptService::getInstance()->gpt3('可靠的生活小助手，耐心，会非常详细的回答我的问题',$chat_id,$text);
+            $json = GptService::getInstance()->gpt3($system, $chat_id, $text, $token);
 
             $chat->record([
                 'username'        => 'johns',
@@ -63,17 +65,17 @@ class SiriService extends BaseService
                 'chat_type'       => 'private',
                 'is_bot'          => 1,
             ]);
-            Log::info( 'johns: ' . $text);
+            Log::info('johns: ' . $text);
 
             Log::info(self::$bot_name . ': ' . $json['choices'][0]['message']['content']);
 
             $tokens = $json['usage']['total_tokens'];
 
-            if(4096 - $tokens<=1000){
-                return $json['choices'][0]['message']['content'].PHP_EOL.'剩余token数不足1000，可回复ok重置会话';
-            }else {
-                return $json['choices'][0]['message']['content'];
+            if (4096 - $tokens <= 1000) {
+                return $json['choices'][0]['message']['content'] . PHP_EOL . '剩余token数不足1000，可回复ok重置会话';
             }
+
+            return $json['choices'][0]['message']['content'];
         } catch (BadResponseException $exception) {
             return $exception->getResponse()->getBody();
         } catch (\Exception $exception) {

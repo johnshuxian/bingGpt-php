@@ -7,8 +7,10 @@ use Illuminate\Support\Facades\Http;
 
 class GptService extends BaseService
 {
-    public function gpt3($system,$chat_id,$prompt)
+    public function gpt3($system, $chat_id, $prompt, $token='')
     {
+        $token = $token ?: env('GPT3_TOKEN');
+
         $records = TelegramChat::getRecords($chat_id, 'chat_id');
 
         $arr = [
@@ -28,7 +30,7 @@ class GptService extends BaseService
         $arr[] = ['role'=>'user', 'content'=>$prompt];
 
         return Http::acceptJson()->withHeaders(
-            ['Authorization' => 'Bearer ' . env('GPT3_TOKEN')]
+            ['Authorization' => 'Bearer ' . $token]
         )->timeout(300)->post('https://api.openai.com/v1/chat/completions', [
             'model'      => 'gpt-3.5-turbo',
             'messages'   => $arr,
