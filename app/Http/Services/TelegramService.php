@@ -342,25 +342,8 @@ class TelegramService extends BaseService
 
                 $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], self::$bot_name, true);
 
-                $arr = [
-                    ['role'=>'system', 'content'=>'You are very helpful, knowledgeable, and also a great English translator. You tackle our questions with patience and provide detailed explanations, making you a master of English translation.'],
-                ];
-
-                if ($chat_id) {
-                    $records = TelegramChat::getRecords($chat_id, 'chat_id');
-
-                    foreach ($records as $record) {
-                        if ($record->is_bot) {
-                            //机器人
-                            $arr[] =  ['role'=>'assistant', 'content'=>$record->content];
-                        } else {
-                            //人类
-                            $arr[] =  ['role'=>'user', 'content'=>$record->content];
-                        }
-                    }
-                } else {
+                if (!$chat_id) {
                     $gpt = ChatConversations::record(getUuid(), getUuid());
-
                     $chat_id = $gpt->id;
                 }
 
@@ -377,18 +360,7 @@ class TelegramService extends BaseService
                         return self::sendTelegram('已手动结束本轮对话', $params['message']['chat']['id']);
                     }
 
-                    $arr[] = ['role'=>'user', 'content'=>$text];
-
-                    $response = Http::acceptJson()->withHeaders(
-                        ['Authorization' => 'Bearer ' . env('GPT3_TOKEN')]
-                    )->timeout(300)->post('https://api.openai.com/v1/chat/completions', [
-                        'model'      => 'gpt-3.5-turbo',
-                        'messages'   => $arr,
-                        'temperature'=> 1,
-                        //                        'stop'  => [' Human:', ' AI:'],
-                    ]);
-
-                    $json = $response->json();
+                    $json = GptService::getInstance()->gpt3('You are very helpful, knowledgeable, and also a great English translator. You tackle our questions with patience and provide detailed explanations, making you a master of English translation.',$chat_id,$text);
 
                     $chat->record([
                         'username'        => $username,
