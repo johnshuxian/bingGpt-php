@@ -2,6 +2,7 @@
 
 namespace App\Http\Services;
 
+use App\Jobs\Send;
 use App\Models\ChatConversations;
 use App\Models\TelegramChat;
 use GuzzleHttp\Exception\BadResponseException;
@@ -18,11 +19,11 @@ class SiriService extends BaseService
         parent::__construct();
     }
 
-    public function siri($siri_id, $text, $token = '',$system = '')
+    public function siri($siri_id, $text, $token = '', $system = '')
     {
         $chat_id = TelegramChat::getLastChatId($siri_id, self::$bot_name, true);
 
-        $system = $system?:'可靠的生活小助手，耐心，会非常详细的回答我的问题';
+        $system = $system ?: '可靠的生活小助手，耐心，会非常详细的回答我的问题';
 
         if (!$chat_id) {
             $gpt     = ChatConversations::record(getUuid(), getUuid());
@@ -48,8 +49,13 @@ class SiriService extends BaseService
 
             $json = GptService::getInstance()->gpt3($system, $chat_id, $text, $token);
 
-            if(isset($json['error']['message'])){
+            if (isset($json['error']['message'])) {
                 Log::info(self::$bot_name . ': ' . $json['error']['message']);
+
+                if (config('telegram.siri')[$siri_id]) {
+                    dispatch(new Send(env('TELEGRAM_BOT_NAME_2'), env('TELEGRAM_BOT_TOKEN_2'), config('telegram.siri')[$siri_id], 'you：' . $text . PHP_EOL . 'siri：' . $json['choices'][0]['message']['content']));
+                }
+
                 return $json['error']['message'];
             }
 
@@ -77,7 +83,17 @@ class SiriService extends BaseService
             $tokens = $json['usage']['total_tokens'];
 
             if (4096 - $tokens <= 1000) {
-                return $json['choices'][0]['message']['content'] . PHP_EOL . '剩余token数不足1000，可回复ok重置会话';
+                $answer = $json['choices'][0]['message']['content'] . PHP_EOL . '剩余token数' . (4096 - $tokens) . '，可回复ok重置会话';
+
+                if (config('telegram.siri')[$siri_id]) {
+                    dispatch(new Send(env('TELEGRAM_BOT_NAME_2'), env('TELEGRAM_BOT_TOKEN_2'), config('telegram.siri')[$siri_id], 'you：' . $text . PHP_EOL . 'siri：' . $answer));
+                }
+
+                return $answer;
+            }
+
+            if (config('telegram.siri')[$siri_id]) {
+                dispatch(new Send(env('TELEGRAM_BOT_NAME_2'), env('TELEGRAM_BOT_TOKEN_2'), config('telegram.siri')[$siri_id], 'you：' . $text . PHP_EOL . 'siri：' . $json['choices'][0]['message']['content']));
             }
 
             return $json['choices'][0]['message']['content'];

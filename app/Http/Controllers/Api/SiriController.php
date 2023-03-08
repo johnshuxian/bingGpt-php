@@ -17,7 +17,7 @@ class SiriController extends Controller
 
         $system = $request->input('system', '可靠的生活小助手，耐心，会非常详细的回答我的问题');
 
-        if (!in_array($siri_id, config('telegram.siri'))) {
+        if (!in_array($siri_id, array_keys(config('telegram.siri')))) {
             return $this->fail([201, '未授权的账号']);
         }
 
