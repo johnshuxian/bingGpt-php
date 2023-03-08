@@ -34,6 +34,8 @@ Route::namespace('Api')->group(function () {
 
     Route::post('siri', [\App\Http\Controllers\Api\SiriController::class,'index'])->name('siri_index');
 
+    Route::post('gpt/ask', [\App\Http\Controllers\Api\SiriController::class,'ask'])->name('gpt_ask');
+
 //    Route::any('telegram/bing', [TelegramController::class,'bing'])->name('telegram_bing');
 
 });

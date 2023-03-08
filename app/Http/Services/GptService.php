@@ -4,7 +4,6 @@ namespace App\Http\Services;
 
 use App\Models\TelegramChat;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 class GptService extends BaseService
 {
@@ -12,21 +11,21 @@ class GptService extends BaseService
     {
         $token = $token ?: env('GPT3_TOKEN');
 
-        Log::info('gpt请求中：'.$prompt);
-
-        $records = TelegramChat::getRecords($chat_id, 'chat_id');
-
         $arr = [
             ['role'=>'system', 'content'=>$system],
         ];
 
-        foreach ($records as $record) {
-            if ($record->is_bot) {
-                //机器人
-                $arr[] =  ['role'=>'assistant', 'content'=>$record->content];
-            } else {
-                //人类
-                $arr[] =  ['role'=>'user', 'content'=>$record->content];
+        if ($chat_id) {
+            $records = TelegramChat::getRecords($chat_id, 'chat_id');
+
+            foreach ($records as $record) {
+                if ($record->is_bot) {
+                    //机器人
+                    $arr[] =  ['role'=>'assistant', 'content'=>$record->content];
+                } else {
+                    //人类
+                    $arr[] =  ['role'=>'user', 'content'=>$record->content];
+                }
             }
         }
 

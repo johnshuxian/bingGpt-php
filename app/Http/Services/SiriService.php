@@ -53,7 +53,7 @@ class SiriService extends BaseService
                 Log::info(self::$bot_name . ': ' . $json['error']['message']);
 
                 if (config('telegram.siri')[$siri_id]) {
-                    dispatch(new Send(env('TELEGRAM_BOT_NAME_2'), env('TELEGRAM_BOT_TOKEN_2'), config('telegram.siri')[$siri_id], 'you：' . $text . PHP_EOL . 'siri：' . $json['choices'][0]['message']['content']));
+                    dispatch(new Send(env('TELEGRAM_BOT_NAME_2'), env('TELEGRAM_BOT_TOKEN_2'), config('telegram.siri')[$siri_id], 'you：' . $text . PHP_EOL . 'siri：' . $json['error']['message']));
                 }
 
                 return $json['error']['message'];
@@ -105,5 +105,16 @@ class SiriService extends BaseService
 
             return $exception->getMessage();
         }
+    }
+
+    public function ask($text, $token, $system)
+    {
+        $json = GptService::getInstance()->gpt3($system, 0, $text, $token);
+
+        if (isset($json['error']['message'])) {
+            return [0, $json['error']['message']];
+        }
+
+        return [1, $json['choices'][0]['message']['content']];
     }
 }
