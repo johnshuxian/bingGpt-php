@@ -13,6 +13,11 @@ use WebSocket\Client;
 
 class BingGptService extends BaseService
 {
+    /**
+     * @var false|mixed
+     */
+    private mixed $siri_use;
+
     public function __construct()
     {
         parent::__construct();
@@ -215,7 +220,7 @@ class BingGptService extends BaseService
 
                         $last = $message['arguments'][count($message['arguments']) - 1]['messages'][0]['text'] ?? '';
 
-                        if (1 == $index) {
+                        if (1 == $index && !$this->siri_use) {
                             TelegramService::sendOrUpdate('稍等，回答正在生成中...');
                         }
                     }
@@ -335,8 +340,10 @@ class BingGptService extends BaseService
         }
     }
 
-    public function ask(string $question, $chat_id, $return_array = false)
+    public function ask(string $question, $chat_id, $return_array = false,$siri_use = false)
     {
+        $this->siri_use = $siri_use;
+
         return $this->connectWss($question, $chat_id, $return_array);
     }
 }

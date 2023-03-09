@@ -14,13 +14,25 @@ class SiriService extends BaseService
 
     public function __construct()
     {
-        self::$bot_name = 'siri_001';
-
         parent::__construct();
     }
 
     public function siri($siri_id, $text, $token = '', $system = '')
     {
+        self::$bot_name = 'siri_001';
+
+        if (preg_match('/^ok$/i', $text)) {
+            //手动结束对话
+
+            TelegramChat::where([
+                'telegram_chat_id' => $siri_id,
+                'username'         => self::$bot_name,
+                'recycle'          => 0,
+            ])->update(['recycle' => 1]);
+
+            return '已手动结束本轮对话';
+        }
+
         $chat_id = TelegramChat::getLastChatId($siri_id, self::$bot_name, true);
 
         $system = $system ?: '可靠的生活小助手，耐心，会非常详细的回答我的问题';
@@ -35,18 +47,6 @@ class SiriService extends BaseService
         $chat = new TelegramChat();
 
         try {
-            if (preg_match('/^ok$/i', $text)) {
-                //手动结束对话
-
-                TelegramChat::where([
-                    'telegram_chat_id' => $siri_id,
-                    'username'         => self::$bot_name,
-                    'recycle'          => 0,
-                ])->update(['recycle' => 1]);
-
-                return '已手动结束本轮对话';
-            }
-
             $json = GptService::getInstance()->gpt3($system, $chat_id, $text, $token);
 
             if (isset($json['error']['message'])) {
@@ -107,11 +107,97 @@ class SiriService extends BaseService
         }
     }
 
+    public function bing($siri_id, $text, $token = '', $system = '')
+    {
+        self::$bot_name = 'siri_002';
+
+        if (preg_match('/^ok$/i', $text)) {
+            //手动结束对话
+
+            TelegramChat::where([
+                'telegram_chat_id' => $siri_id,
+                'username'         => self::$bot_name,
+                'recycle'          => 0,
+            ])->update(['recycle' => 1]);
+
+            return '已手动结束本轮对话';
+        }
+
+        $chat_id = TelegramChat::getLastChatId($siri_id, self::$bot_name, true, 'bing_id');
+
+        if (!$chat_id) {
+            $json = BingGptService::getInstance()->createConversation(true);
+
+            if (!$json['code']) {
+                return $json['message'];
+            }
+
+            $chat_id = $json['data']['chatId'];
+        }
+
+        $bot_name = self::$bot_name;
+
+        $chat = new TelegramChat();
+
+        try {
+            $json = BingGptService::getInstance()->ask($text, $chat_id, true, true);
+
+            $chat->record([
+                'username'        => 'johns',
+                'content'         => $text,
+                'telegram_chat_id'=> $siri_id,
+                'bing_id'         => $chat_id,
+                'chat_type'       => 'private',
+                'is_bot'          => 0,
+            ]);
+
+            $chat->record([
+                'username'        => self::$bot_name,
+                'content'         => $json['data']['answer'],
+                'telegram_chat_id'=> $siri_id,
+                'bing_id'         => $chat_id,
+                'chat_type'       => 'private',
+                'is_bot'          => 1,
+            ]);
+
+            Log::info('johns: ' . $text);
+
+            Log::info(self::$bot_name . ': ' . $json['data']['answer']);
+
+            $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']);
+
+            if ($json['data']['numUserMessagesInConversation'] == $json['data']['maxNumUserMessagesInConversation']) {
+                $answer = $answer . '，回合数已用完，已自动重置';
+
+                TelegramChat::where([
+                    'telegram_chat_id' => $siri_id,
+                    'username'         => self::$bot_name,
+                    'recycle'          => 0,
+                ])->update(['recycle' => 1]);
+            }
+
+            if (config('telegram.siri')[$siri_id]) {
+                dispatch(new Send(env('TELEGRAM_BOT_NAME_1'), env('TELEGRAM_BOT_TOKEN_1'), config('telegram.siri')[$siri_id], 'you：' . $text . PHP_EOL . 'siri：' . $answer));
+            }
+
+            return $answer;
+        } catch (BadResponseException $exception) {
+            return $exception->getResponse()->getBody();
+        } catch (\Exception $exception) {
+            Log::info($exception->getMessage() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
+            Log::info('info:', $json ?? []);
+
+            return $exception->getMessage();
+        }
+    }
+
     public function ask($text, $token, $system)
     {
         $json = GptService::getInstance()->gpt3($system, 0, $text, $token);
 
         if (isset($json['error']['message'])) {
+            Log::info('info:' . $json['error']['message']);
+
             return [0, $json['error']['message']];
         }
 
