@@ -164,9 +164,9 @@ class SiriService extends BaseService
 
             Log::info(self::$bot_name . ': ' . $json['data']['answer']);
 
-            $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']);
+            $answer = preg_replace('/\[\^(\d+)\^\]/', '', $json['data']['answer']);
 
-            if ($json['data']['numUserMessagesInConversation'] == $json['data']['maxNumUserMessagesInConversation']) {
+            if ($json['data']['numUserMessagesInConversation'] != 0 && $json['data']['numUserMessagesInConversation'] == $json['data']['maxNumUserMessagesInConversation']) {
                 $answer = $answer . '，回合数已用完，已自动重置';
 
                 TelegramChat::where([
