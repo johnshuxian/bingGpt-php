@@ -70,7 +70,7 @@ class BingGptService extends BaseService
     {
         $conversation = self::conversation($chat_id);
 
-        return [
+        $info =  [
             'arguments' => [
                 [
                     'source'      => 'cib',
@@ -100,6 +100,28 @@ class BingGptService extends BaseService
             'target'       => 'chat',
             'type'         => 4,
         ];
+
+        //                   'h3imaginative',//富有创造性的
+        //                   'harmonyv3',    //平衡的
+        //                    'h3precise'    //更加精确
+
+        $styles = [
+            'A'=>'h3imaginative',
+            'B'=>'harmonyv3',
+            'C'=>'h3precise'
+        ];
+
+        $conversation_style = \request()->input('style',env('BING_STYLE','A'));
+
+        if(in_array($conversation_style,array_keys($styles))){
+            $info['arguments'][0]['optionsSets'][] = $styles[$conversation_style];
+        }else{
+            $info['arguments'][0]['optionsSets'][] = $styles['A'];
+        }
+
+        Log::info('info:',$info);
+
+        return $info;
     }
 
     public function connectWss(string $prompt, $chat_id, $return_array = false, $key = 0)
