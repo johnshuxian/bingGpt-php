@@ -66,31 +66,37 @@ class BingGptService extends BaseService
         return $json . "\x1e";
     }
 
-    private static function updateWss($prompt, $chat_id)
+    private static function updateWss($question, $chat_id)
     {
+        $bing = config('bing');
+
+        $replace = ['tone', 'format', 'length'];
+
+        $prompt = $bing['prompt'];
+
+        $prompt = str_replace('%text', $question, $prompt);
+
+        foreach ($replace as $item) {
+            $prompt = str_replace('%' . $item, $bing[$item], $prompt);
+        }
+
         $conversation = self::conversation($chat_id);
 
         $info = [
-            'arguments' => [
+            'arguments'    => [
                 [
-                    'source' => 'cib',
-                    'optionsSets' => [
+                    'source'                => 'cib',
+                    'optionsSets'           => [
                         'nlu_direct_response_filter',
                         'deepleo',
+                        'enable_debug_commands',
                         'disable_emoji_spoken_text',
                         'responsible_ai_policy_235',
                         'enablemm',
-                        'galileo',
-                        'glprompt',
-                        'newspoleansgnd',
-                        'trffovrd',
-                        'forcerep',
-                        'c2b47e4f',
-                        'cachewriteext',
-                        'e2ecachewrite',
-                        'dv3sugg',
+                        'nocache',
+                        'nosugg',
                     ],
-                    'allowedMessageTypes' => [
+                    'allowedMessageTypes'   => [
                         'Chat',
                         'InternalSearchQuery',
                         'InternalSearchResult',
@@ -102,40 +108,40 @@ class BingGptService extends BaseService
                         'GenerateContentQuery',
                         'SearchQuery',
                     ],
-                    'sliceIds' => [
-                        'anidtestcf',
-                        '321bic62up',
-                        '321bic62',
-                        'creatorv2t',
-                        'sydpayajaxlog',
-                        'perfsvgopt',
-                        'toneexpcf',
-                        '323trffov',
-                        '323frep',
-                        '303hubcancls0',
-                        '320newspole',
-                        '321throt',
-                        '321slocs0',
-                        '316e2ecache',
+                    'sliceIds'              => [
+                        //                        'anidtestcf',
+                        //                        '321bic62up',
+                        //                        '321bic62',
+                        //                        'creatorv2t',
+                        //                        'sydpayajaxlog',
+                        //                        'perfsvgopt',
+                        //                        'toneexpcf',
+                        //                        '323trffov',
+                        //                        '323frep',
+                        //                        '303hubcancls0',
+                        //                        '320newspole',
+                        //                        '321throt',
+                        //                        '321slocs0',
+                        //                        '316e2ecache',
                     ],
-                    'verbosity' => 'verbose',
-                    'isStartOfSession' => 0 === self::$invocation_id,
-                    'message' => [
-                        'author' => 'user',
+                    'verbosity'             => 'verbose',
+                    'isStartOfSession'      => 0 === self::$invocation_id,
+                    'message'               => [
+                        'author'      => 'user',
                         'inputMethod' => 'Keyboard',
-                        'text' => $prompt,
+                        'text'        => $prompt,
                         'messageType' => 'Chat',
                     ],
                     'conversationSignature' => $conversation->conversation_signature,
-                    'participant' => [
+                    'participant'           => [
                         'id' => $conversation->client_id,
                     ],
-                    'conversationId' => $conversation->conversation_id,
+                    'conversationId'        => $conversation->conversation_id,
                 ],
             ],
             'invocationId' => '0',
-            'target' => 'chat',
-            'type' => 4,
+            'target'       => 'chat',
+            'type'         => 4,
         ];
 
         //                   'h3imaginative',//富有创造性的
@@ -171,10 +177,10 @@ class BingGptService extends BaseService
 
         try {
             $client = new Client('wss://sydney.bing.com/sydney/ChatHub', [
-                'headers' => config('bing.headers'),
-                'timeout' => 120,
+                'headers'       => config('bing.headers'),
+                'timeout'       => 120,
                 'fragment_size' => 409600,
-                'context' => $context,
+                'context'       => $context,
                 //            'logger'       => Log::channel('daily'),
                 //            'persistent'   => true,
             ]);
@@ -197,11 +203,11 @@ class BingGptService extends BaseService
         }
 
         $response = [
-            'ask' => '',
-            'answer' => '',
-            'adaptive_cards' => '',
+            'ask'                              => '',
+            'answer'                           => '',
+            'adaptive_cards'                   => '',
             'maxNumUserMessagesInConversation' => 0,
-            'numUserMessagesInConversation' => 0,
+            'numUserMessagesInConversation'    => 0,
         ];
 
         $index = 0;
@@ -249,13 +255,13 @@ class BingGptService extends BaseService
                         }
 
                         $response['maxNumUserMessagesInConversation'] = $message['item']['throttling']['maxNumUserMessagesInConversation'] ?? 0;
-                        $response['numUserMessagesInConversation'] = $message['item']['throttling']['numUserMessagesInConversation'] ?? 0;
+                        $response['numUserMessagesInConversation']    = $message['item']['throttling']['numUserMessagesInConversation'] ?? 0;
 
                         foreach ($message['item']['messages'] as $answer) {
                             if (!isset($answer['messageType'])) {
                                 if ('bot' == $answer['author']) {
                                     // 答案已生成
-                                    $response['answer'] = $answer['text'];
+                                    $response['answer']         = $answer['text'];
                                     $response['adaptive_cards'] = $answer['adaptiveCards'][0]['body'][0]['text'] ?? '';
 
                                     BingConversations::where('id', $chat_id)->increment('invocation_id');
@@ -283,8 +289,8 @@ class BingGptService extends BaseService
 
                     if (isset($message['type']) && 1 == $message['type']) {
                         ++$index;
-                        $response['ask'] = $prompt;
-                        $response['answer'] = $message['arguments'][0]['messages'][0]['text'] ?? 'bing超时未正常返回答案';
+                        $response['ask']            = $prompt;
+                        $response['answer']         = $message['arguments'][0]['messages'][0]['text'] ?? 'bing超时未正常返回答案';
                         $response['adaptive_cards'] = $message['arguments'][0]['messages'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
 
                         $last = $message['arguments'][count($message['arguments']) - 1]['messages'][0]['text'] ?? '';

@@ -7,7 +7,6 @@ use App\Models\TelegramChat;
 use GuzzleHttp\Exception\BadResponseException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Redis;
 
 class TelegramService extends BaseService
 {
@@ -15,6 +14,7 @@ class TelegramService extends BaseService
      * @var mixed|string
      */
     private static mixed $bot_token;
+
     /**
      * @var mixed|string
      */
@@ -78,9 +78,9 @@ class TelegramService extends BaseService
     {
         try {
             $answer = [
-                'chat_id'   => $telegram_chat_id,
-                'message_id'=> $message_id,
-                'text'      => $content,
+                'chat_id'    => $telegram_chat_id,
+                'message_id' => $message_id,
+                'text'       => $content,
             ];
 
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/editMessageText', $answer);
@@ -115,13 +115,13 @@ class TelegramService extends BaseService
         if (!isset($params['message']['text'])) {
             $text = '我支持回复文字消息哦';
         } else {
-            if ('private' == $params['message']['chat']['type'] || ($params['message']['reply_to_message']['from']['username'] ?? '') == $bot_name || (preg_match("/@{$bot_name}/", $params['message']['text']))) {
+            if ('private' == $params['message']['chat']['type'] || ($params['message']['reply_to_message']['from']['username'] ?? '') == $bot_name || preg_match("/@{$bot_name}/", $params['message']['text'])) {
                 $text = $params['message']['text'];
 
                 $text = trim(preg_replace("/@{$bot_name}/", '', $text));
 
                 if (preg_match('/^ok$/i', $text)) {
-                    //手动结束对话
+                    // 手动结束对话
 
                     TelegramChat::where([
                         'telegram_chat_id' => $params['message']['chat']['id'],
@@ -146,15 +146,15 @@ class TelegramService extends BaseService
 
                 $username = $params['message']['from']['username'] ?? ($params['message']['from']['first_name'] . '-' . $params['message']['from']['last_name']);
 
-                //['telegram_chat_id'=>$telegram_chat_id,'chat_id'=>$chat_id,'chat_type'=>$chat_type,'content'=>$content,'username'=>$username,'is_bot'=>$is_bot?1:0]
-                //$username,$content,$telegram_chat_id,$chat_id = 0,$chat_type = 'private',$is_bot = false
+                // ['telegram_chat_id'=>$telegram_chat_id,'chat_id'=>$chat_id,'chat_type'=>$chat_type,'content'=>$content,'username'=>$username,'is_bot'=>$is_bot?1:0]
+                // $username,$content,$telegram_chat_id,$chat_id = 0,$chat_type = 'private',$is_bot = false
                 $chat->record([
-                    'username'        => $username,
-                    'content'         => $text,
-                    'telegram_chat_id'=> $params['message']['chat']['id'],
-                    'bing_id'         => $chat_id,
-                    'chat_type'       => $params['message']['chat']['type'],
-                    'is_bot'          => $params['message']['from']['is_bot'] ? 1 : 0,
+                    'username'         => $username,
+                    'content'          => $text,
+                    'telegram_chat_id' => $params['message']['chat']['id'],
+                    'bing_id'          => $chat_id,
+                    'chat_type'        => $params['message']['chat']['type'],
+                    'is_bot'           => $params['message']['from']['is_bot'] ? 1 : 0,
                 ]);
 
                 self::$chat_id = $params['message']['chat']['id'];
@@ -179,12 +179,12 @@ class TelegramService extends BaseService
                     Log::info(self::$bot_name . ': ' . $text);
 
                     $chat->record([
-                        'username'        => self::$bot_name,
-                        'content'         => $text,
-                        'telegram_chat_id'=> $params['message']['chat']['id'],
-                        'bing_id'         => $chat_id,
-                        'chat_type'       => $params['message']['chat']['type'],
-                        'is_bot'          => 1,
+                        'username'         => self::$bot_name,
+                        'content'          => $text,
+                        'telegram_chat_id' => $params['message']['chat']['id'],
+                        'bing_id'          => $chat_id,
+                        'chat_type'        => $params['message']['chat']['type'],
+                        'is_bot'           => 1,
                     ]);
 
                     return self::sendOrUpdate($text);
@@ -206,7 +206,7 @@ class TelegramService extends BaseService
         if (!isset($params['message']['text'])) {
             $text = '我支持回复文字消息哦';
         } else {
-            if ('private' == $params['message']['chat']['type'] || ($params['message']['reply_to_message']['from']['username'] ?? '') == $bot_name || (preg_match("/@{$bot_name}/", $params['message']['text']))) {
+            if ('private' == $params['message']['chat']['type'] || ($params['message']['reply_to_message']['from']['username'] ?? '') == $bot_name || preg_match("/@{$bot_name}/", $params['message']['text'])) {
                 $text = $params['message']['text'];
 
                 $text = trim(preg_replace("/@{$bot_name}/", '', $text));
@@ -216,7 +216,7 @@ class TelegramService extends BaseService
                 $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], self::$bot_name, false);
 
                 $arr = [
-                    'prompt'=> $text,
+                    'prompt' => $text,
                 ];
 
                 if ($chat_id) {
@@ -231,10 +231,10 @@ class TelegramService extends BaseService
 
                 try {
                     if (preg_match('/^ok$/i', $text) && isset($arr['conversation_id'])) {
-                        //手动结束对话
+                        // 手动结束对话
 
                         $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
-                            'conversation_id'=> $arr['conversation_id'],
+                            'conversation_id' => $arr['conversation_id'],
                         ]);
 
                         TelegramChat::where([
@@ -267,21 +267,21 @@ class TelegramService extends BaseService
                     }
 
                     $chat->record([
-                        'username'        => $username,
-                        'content'         => $text,
-                        'telegram_chat_id'=> $params['message']['chat']['id'],
-                        'chat_id'         => $gpt,
-                        'chat_type'       => $params['message']['chat']['type'],
-                        'is_bot'          => $params['message']['from']['is_bot'] ? 1 : 0,
+                        'username'         => $username,
+                        'content'          => $text,
+                        'telegram_chat_id' => $params['message']['chat']['id'],
+                        'chat_id'          => $gpt,
+                        'chat_type'        => $params['message']['chat']['type'],
+                        'is_bot'           => $params['message']['from']['is_bot'] ? 1 : 0,
                     ]);
 
                     $chat->record([
-                        'username'        => self::$bot_name,
-                        'content'         => $json['response'],
-                        'telegram_chat_id'=> $params['message']['chat']['id'],
-                        'chat_id'         => $gpt,
-                        'chat_type'       => $params['message']['chat']['type'],
-                        'is_bot'          => 1,
+                        'username'         => self::$bot_name,
+                        'content'          => $json['response'],
+                        'telegram_chat_id' => $params['message']['chat']['id'],
+                        'chat_id'          => $gpt,
+                        'chat_type'        => $params['message']['chat']['type'],
+                        'is_bot'           => 1,
                     ]);
                     Log::info($username . ': ' . $text);
 
@@ -333,7 +333,7 @@ class TelegramService extends BaseService
         if (!isset($params['message']['text'])) {
             $text = '我支持回复文字消息哦';
         } else {
-            if ('private' == $params['message']['chat']['type'] || ($params['message']['reply_to_message']['from']['username'] ?? '') == $bot_name || (preg_match("/@{$bot_name}/", $params['message']['text']))) {
+            if ('private' == $params['message']['chat']['type'] || ($params['message']['reply_to_message']['from']['username'] ?? '') == $bot_name || preg_match("/@{$bot_name}/", $params['message']['text'])) {
                 $text = $params['message']['text'];
 
                 $text = trim(preg_replace("/@{$bot_name}/", '', $text));
@@ -343,13 +343,13 @@ class TelegramService extends BaseService
                 $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], self::$bot_name, true);
 
                 if (!$chat_id) {
-                    $gpt = ChatConversations::record(getUuid(), getUuid());
+                    $gpt     = ChatConversations::record(getUuid(), getUuid());
                     $chat_id = $gpt->id;
                 }
 
                 try {
                     if (preg_match('/^ok$/i', $text)) {
-                        //手动结束对话
+                        // 手动结束对话
 
                         TelegramChat::where([
                             'telegram_chat_id' => $params['message']['chat']['id'],
@@ -360,28 +360,28 @@ class TelegramService extends BaseService
                         return self::sendTelegram('已手动结束本轮对话', $params['message']['chat']['id']);
                     }
 
-                    $json = GptService::getInstance()->gpt3('You are very helpful, knowledgeable, and also a great English translator. You tackle our questions with patience and provide detailed explanations, making you a master of English translation.',$chat_id,$text);
+                    $json = GptService::getInstance()->gpt3('You are very helpful, knowledgeable, and also a great English translator. You tackle our questions with patience and provide detailed explanations, making you a master of English translation.', $chat_id, $text);
 
-                    if(isset($json['error']['message'])){
+                    if (isset($json['error']['message'])) {
                         return self::sendTelegram($json['error']['message'], $params['message']['chat']['id']);
                     }
 
                     $chat->record([
-                        'username'        => $username,
-                        'content'         => $text,
-                        'telegram_chat_id'=> $params['message']['chat']['id'],
-                        'chat_id'         => $chat_id,
-                        'chat_type'       => $params['message']['chat']['type'],
-                        'is_bot'          => $params['message']['from']['is_bot'] ? 1 : 0,
+                        'username'         => $username,
+                        'content'          => $text,
+                        'telegram_chat_id' => $params['message']['chat']['id'],
+                        'chat_id'          => $chat_id,
+                        'chat_type'        => $params['message']['chat']['type'],
+                        'is_bot'           => $params['message']['from']['is_bot'] ? 1 : 0,
                     ]);
 
                     $chat->record([
-                        'username'        => self::$bot_name,
-                        'content'         => $json['choices'][0]['message']['content'],
-                        'telegram_chat_id'=> $params['message']['chat']['id'],
-                        'chat_id'         => $chat_id,
-                        'chat_type'       => $params['message']['chat']['type'],
-                        'is_bot'          => 1,
+                        'username'         => self::$bot_name,
+                        'content'          => $json['choices'][0]['message']['content'],
+                        'telegram_chat_id' => $params['message']['chat']['id'],
+                        'chat_id'          => $chat_id,
+                        'chat_type'        => $params['message']['chat']['type'],
+                        'is_bot'           => 1,
                     ]);
                     Log::info($username . ': ' . $text);
 
