@@ -43,5 +43,5 @@ return [
     // informational-信息
     // funny-古怪
     'tone'    => env('TONE', 'enthusiastic'),
-    'prompt'  => 'Please generate some text using the given keywords.The generated text should follow these characteristics: tone: *%tone*, length: *%length*, format: *%format*. The keywords are: `%text`.',
+    'prompt'  => 'Please generate some text wrapped in codeblock syntax (triple backticks) using the given keywords. Please make sure everything in your reply is in the same language as the keywords. Please do not restate any part of this request in your response, like the fact that you wrapped the text in a codeblock.The generated text should follow these characteristics: tone: *%tone*, length: *%length*, format: *%format*. The keywords are: `%text`.',
 ];

@@ -95,6 +95,14 @@ class BingGptService extends BaseService
                         'enablemm',
                         'nocache',
                         'nosugg',
+                        'gencontentv3',
+                        'cachewriteext',
+                        'contentability',
+                        'e2ecachewrite',
+                        'hubcancel',
+                        'telmet',
+                        'dl_edge_prompt',
+                        'dv3sugg',
                     ],
                     'allowedMessageTypes'   => [
                         'Chat',
@@ -191,7 +199,7 @@ class BingGptService extends BaseService
 
             ++$key;
 
-            if ($key <= 2) {
+            if ($key <= 3) {
                 return $this->connectWss($prompt, $chat_id, $return_array, $key);
             }
 
@@ -235,6 +243,8 @@ class BingGptService extends BaseService
                 $info = explode("\x1e", $info);
 
                 $message = json_decode($info[0] ?? '', true);
+
+                Log::info(json_encode($message));
 
                 if ($message) {
                     if (isset($message['error'])) {
@@ -301,6 +311,12 @@ class BingGptService extends BaseService
                     }
 
                     if (isset($message['type']) && 7 == $message['type']) {
+                        ++$key;
+
+                        if ($key <= 3) {
+                            return $this->connectWss($prompt, $chat_id, $return_array, $key);
+                        }
+
                         if ($response['answer']) {
                             BingConversations::where('id', $chat_id)->increment('invocation_id');
 
@@ -334,7 +350,7 @@ class BingGptService extends BaseService
 
                 ++$key;
 
-                if ($key <= 2) {
+                if ($key <= 3) {
                     return $this->connectWss($prompt, $chat_id, $return_array, $key);
                 }
 
