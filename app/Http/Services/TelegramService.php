@@ -13,14 +13,18 @@ class TelegramService extends BaseService
     /**
      * @var mixed|string
      */
-    private static mixed $bot_token;
+    public static mixed $bot_token;
 
     /**
      * @var mixed|string
      */
-    private static mixed $bot_name;
+    public static mixed $bot_name;
     public static int $last_message_id = 0;
-    private static $chat_id            = '';
+    public static $chat_id            = '';
+    /**
+     * @var mixed|string
+     */
+    public static mixed $key;
 
     public static function bot($token = '', $name = '')
     {
@@ -97,9 +101,11 @@ class TelegramService extends BaseService
         }
     }
 
-    public function telegram(array $params, $method = 'bingGpt', $token='', $name = '')
+    public function telegram(array $params, $method = 'bingGpt', $token='', $name = '',$key = '')
     {
         self::bot($token, $name);
+
+        self::$key = $key;
 
 //        Log::info('info: ', ['token'=>self::$bot_token, 'name'=>self::$bot_name]);
 
@@ -187,7 +193,7 @@ class TelegramService extends BaseService
                         'is_bot'           => 1,
                     ]);
 
-                    return self::sendOrUpdate($text);
+//                    return self::sendOrUpdate($text);
                 }
 
                 return self::sendTelegram($json['message'] ?? '', $params['message']['chat']['id']);

@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Exceptions\BusinessException;
 use App\Helpers\ResponseEnum;
+use App\Jobs\Progress;
 use App\Models\BingConversations;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Client\ConnectionException;
@@ -267,25 +268,12 @@ class BingGptService extends BaseService
                         $response['maxNumUserMessagesInConversation'] = $message['item']['throttling']['maxNumUserMessagesInConversation'] ?? 0;
                         $response['numUserMessagesInConversation']    = $message['item']['throttling']['numUserMessagesInConversation'] ?? 0;
 
-                        foreach ($message['item']['messages'] as $answer) {
-                            if (!isset($answer['messageType'])) {
-                                if ('bot' == $answer['author']) {
-                                    // 答案已生成
-                                    $response['answer']         = $answer['text'];
-                                    $response['adaptive_cards'] = $answer['adaptiveCards'][0]['body'][0]['text'] ?? '';
+                        $response['answer']         = $message['item']['messages'][1]['text']??'回复为空';
+                        $response['adaptive_cards'] = $message['item']['messages'][1]['adaptiveCards'][0]['body'][0]['text'] ?? '回复为空';
+                        $response['ask']            = $prompt;
 
-                                    BingConversations::where('id', $chat_id)->increment('invocation_id');
-
-                                    if ($return_array) {
-                                        return ['code' => 1, 'message' => '', 'data' => $response];
-                                    }
-
-                                    return $this->success($response);
-                                }
-                                if ('user' == $answer['author']) {
-                                    $response['ask'] = $answer['text'];
-                                }
-                            }
+                        if(!$this->siri_use){
+                            dispatch(new Progress(TelegramService::$bot_name,TelegramService::$bot_token,TelegramService::$chat_id,$response['adaptive_cards'],TelegramService::$key));
                         }
 
                         BingConversations::where('id', $chat_id)->increment('invocation_id');
@@ -295,18 +283,44 @@ class BingGptService extends BaseService
                         }
 
                         return $this->success($response);
+//                        foreach ($message['item']['messages'] as $answer) {
+//                            if (!isset($answer['messageType'])) {
+//                                if ('bot' == $answer['author']) {
+//                                    // 答案已生成
+//                                    $response['answer']         = $answer['text'];
+//                                    $response['adaptive_cards'] = $answer['adaptiveCards'][0]['body'][0]['text'] ?? '';
+//
+//                                    BingConversations::where('id', $chat_id)->increment('invocation_id');
+//
+//                                    if ($return_array) {
+//                                        return ['code' => 1, 'message' => '', 'data' => $response];
+//                                    }
+//
+//                                    return $this->success($response);
+//                                }
+//                                if ('user' == $answer['author']) {
+//                                    $response['ask'] = $answer['text'];
+//                                }
+//                            }
+//                        }
+//
+//                        BingConversations::where('id', $chat_id)->increment('invocation_id');
+//
+//                        if ($return_array) {
+//                            return ['code' => 1, 'message' => '', 'data' => $response];
+//                        }
+//
+//                        return $this->success($response);
                     }
 
                     if (isset($message['type']) && 1 == $message['type']) {
                         ++$index;
                         $response['ask']            = $prompt;
-                        $response['answer']         = $message['arguments'][0]['messages'][0]['text'] ?? 'bing超时未正常返回答案';
+                        $response['answer']         = $message['arguments'][0]['messages'][0]['text'] ?? '';
                         $response['adaptive_cards'] = $message['arguments'][0]['messages'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
 
-                        $last = $message['arguments'][count($message['arguments']) - 1]['messages'][0]['text'] ?? '';
-
-                        if (1 == $index && !$this->siri_use) {
-                            TelegramService::sendOrUpdate('稍等，回答正在生成中...');
+                        if(!$this->siri_use){
+                            dispatch(new Progress(TelegramService::$bot_name,TelegramService::$bot_token,TelegramService::$chat_id,$response['answer'],TelegramService::$key));
                         }
                     }
 

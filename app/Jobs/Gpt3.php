@@ -40,7 +40,7 @@ class Gpt3 implements ShouldQueue
         $key = $message_id . '-' . $id;
 
         if ($message_id && Redis::connection()->client()->set('lock:' . $key, 1, ['nx', 'ex'=>300])) {
-            TelegramService::getInstance()->telegram($this->params, 'gpt3',env('TELEGRAM_BOT_TOKEN_2'), env('TELEGRAM_BOT_NAME_2'));
+            TelegramService::getInstance()->telegram($this->params, 'gpt3',env('TELEGRAM_BOT_TOKEN_2'), env('TELEGRAM_BOT_NAME_2'),$key);
         }
     }
 }
