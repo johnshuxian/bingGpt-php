@@ -96,14 +96,14 @@ class BingGptService extends BaseService
                         'enablemm',
                         'nocache',
                         'nosugg',
-                        'gencontentv3',
-                        'cachewriteext',
-                        'contentability',
-                        'e2ecachewrite',
-                        'hubcancel',
-                        'telmet',
-                        'dl_edge_prompt',
-                        'dv3sugg',
+                        //                        'gencontentv3',
+                        //                        'cachewriteext',
+                        //                        'contentability',
+                        //                        'e2ecachewrite',
+                        //                        'hubcancel',
+                        //                        'telmet',
+                        //                        'dl_edge_prompt',
+                        //                        'dv3sugg',
                     ],
                     'allowedMessageTypes'   => [
                         'Chat',
@@ -212,7 +212,7 @@ class BingGptService extends BaseService
         }
 
         $response = [
-            'ask'                              => '',
+            'ask'                              => $prompt,
             'answer'                           => '',
             'adaptive_cards'                   => '',
             'maxNumUserMessagesInConversation' => 0,
@@ -245,7 +245,7 @@ class BingGptService extends BaseService
 
                 $message = json_decode($info[0] ?? '', true);
 
-                Log::info(json_encode($message));
+//                Log::info(json_encode($message));
 
                 if ($message) {
                     if (isset($message['error'])) {
@@ -265,62 +265,55 @@ class BingGptService extends BaseService
                             return $this->fail(ResponseEnum::CLIENT_NOT_FOUND_HTTP_ERROR, $message['item']['result']['message']);
                         }
 
-                        $response['maxNumUserMessagesInConversation'] = $message['item']['throttling']['maxNumUserMessagesInConversation'] ?? 0;
-                        $response['numUserMessagesInConversation']    = $message['item']['throttling']['numUserMessagesInConversation'] ?? 0;
+                        foreach ($message['item']['messages'] as $answer) {
+                            if (!isset($answer['messageType'])) {
+                                if ('bot' == $answer['author']) {
+                                    // 答案已生成
+                                    if (0 == $response['maxNumUserMessagesInConversation']) {
+                                        $response['maxNumUserMessagesInConversation'] = $message['item']['throttling']['maxNumUserMessagesInConversation'] ?? 0;
+                                        $response['numUserMessagesInConversation']    = $message['item']['throttling']['numUserMessagesInConversation'] ?? 0;
+                                    }
 
-                        $response['answer']         = $message['item']['messages'][1]['text']??'回复为空';
-                        $response['adaptive_cards'] = $message['item']['messages'][1]['adaptiveCards'][0]['body'][0]['text'] ?? '回复为空';
-                        $response['ask']            = $prompt;
+                                    $response['answer']         = $answer['text'];
+                                    $response['adaptive_cards'] = $answer['adaptiveCards'][0]['body'][0]['text'] ?? '';
 
-                        if(!$this->siri_use){
-                            dispatch(new Progress(TelegramService::$bot_name,TelegramService::$bot_token,TelegramService::$chat_id,$response['adaptive_cards'],TelegramService::$key));
+                                    BingConversations::where('id', $chat_id)->increment('invocation_id');
+
+                                    if (!$this->siri_use) {
+                                        dispatch(new Progress(TelegramService::$bot_name, TelegramService::$bot_token, TelegramService::$chat_id, $response, TelegramService::$key));
+                                    }
+
+                                    if ($return_array) {
+                                        return ['code' => 1, 'message' => '', 'data' => $response];
+                                    }
+
+                                    return $this->success($response);
+                                }
+                            }
                         }
 
                         BingConversations::where('id', $chat_id)->increment('invocation_id');
-
                         if ($return_array) {
                             return ['code' => 1, 'message' => '', 'data' => $response];
                         }
 
                         return $this->success($response);
-//                        foreach ($message['item']['messages'] as $answer) {
-//                            if (!isset($answer['messageType'])) {
-//                                if ('bot' == $answer['author']) {
-//                                    // 答案已生成
-//                                    $response['answer']         = $answer['text'];
-//                                    $response['adaptive_cards'] = $answer['adaptiveCards'][0]['body'][0]['text'] ?? '';
-//
-//                                    BingConversations::where('id', $chat_id)->increment('invocation_id');
-//
-//                                    if ($return_array) {
-//                                        return ['code' => 1, 'message' => '', 'data' => $response];
-//                                    }
-//
-//                                    return $this->success($response);
-//                                }
-//                                if ('user' == $answer['author']) {
-//                                    $response['ask'] = $answer['text'];
-//                                }
-//                            }
-//                        }
-//
-//                        BingConversations::where('id', $chat_id)->increment('invocation_id');
-//
-//                        if ($return_array) {
-//                            return ['code' => 1, 'message' => '', 'data' => $response];
-//                        }
-//
-//                        return $this->success($response);
                     }
 
                     if (isset($message['type']) && 1 == $message['type']) {
-                        ++$index;
-                        $response['ask']            = $prompt;
+                        // 检查是否有maxNumUserMessagesInConversation值
+                        if (isset($message['arguments'][0]['throttling']['maxNumUserMessagesInConversation'])) {
+                            $response['maxNumUserMessagesInConversation'] = $message['arguments'][0]['throttling']['maxNumUserMessagesInConversation'];
+                            $response['numUserMessagesInConversation']    = $message['arguments'][0]['throttling']['numUserMessagesInConversation'];
+                        }
+
                         $response['answer']         = $message['arguments'][0]['messages'][0]['text'] ?? '';
                         $response['adaptive_cards'] = $message['arguments'][0]['messages'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
 
-                        if(!$this->siri_use){
-                            dispatch(new Progress(TelegramService::$bot_name,TelegramService::$bot_token,TelegramService::$chat_id,$response['answer'],TelegramService::$key));
+                        if ($response['answer'] || $response['adaptive_cards']) {
+                            if (!$this->siri_use) {
+                                dispatch(new Progress(TelegramService::$bot_name, TelegramService::$bot_token, TelegramService::$chat_id, $response, TelegramService::$key));
+                            }
                         }
                     }
 

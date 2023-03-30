@@ -7,6 +7,7 @@ use App\Models\TelegramChat;
 use GuzzleHttp\Exception\BadResponseException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 
 class TelegramService extends BaseService
 {
@@ -20,7 +21,8 @@ class TelegramService extends BaseService
      */
     public static mixed $bot_name;
     public static int $last_message_id = 0;
-    public static $chat_id            = '';
+    public static $chat_id             = '';
+
     /**
      * @var mixed|string
      */
@@ -101,7 +103,7 @@ class TelegramService extends BaseService
         }
     }
 
-    public function telegram(array $params, $method = 'bingGpt', $token='', $name = '',$key = '')
+    public function telegram(array $params, $method = 'bingGpt', $token='', $name = '', $key = '')
     {
         self::bot($token, $name);
 
@@ -174,13 +176,31 @@ class TelegramService extends BaseService
                         $json['data']['adaptive_cards'] = '';
                     }
 
-                    $json['data']['adaptive_cards'] = str_replace($json['data']['answer'], '', $json['data']['adaptive_cards']);
+                    $adaptive_cards = trim(preg_replace('/\[\^(\d+)\^\]/', '', $json['data']['adaptive_cards']));
 
-                    $adaptive_cards = trim(preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['adaptive_cards']));
+                    $answer = preg_replace('/\[\^(\d+)\^\]/', '', $json['data']['answer']);
 
-                    $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']);
+                    $adaptive_cards = trim(str_replace($answer, '', $adaptive_cards));
 
-                    $text = '(' . $json['data']['numUserMessagesInConversation'] . '/' . $json['data']['maxNumUserMessagesInConversation'] . ')' . PHP_EOL . ($adaptive_cards ?: $answer);
+                    $text = '';
+
+                    if ($json['data']['numUserMessagesInConversation']) {
+                        $text .= '(' . $json['data']['numUserMessagesInConversation'] . '/' . $json['data']['maxNumUserMessagesInConversation'] . ')';
+                    }
+
+                    if ($text) {
+                        $text .= PHP_EOL;
+                    }
+
+                    if ($answer) {
+                        $text .= $answer . PHP_EOL;
+                    }
+
+                    if ($text) {
+                        $text .= PHP_EOL;
+                    }
+
+                    $text .= $adaptive_cards;
 
                     Log::info(self::$bot_name . ': ' . $text);
 
@@ -193,7 +213,7 @@ class TelegramService extends BaseService
                         'is_bot'           => 1,
                     ]);
 
-//                    return self::sendOrUpdate($text);
+                    return self::sendOrUpdate($text);
                 }
 
                 return self::sendTelegram($json['message'] ?? '', $params['message']['chat']['id']);
@@ -416,6 +436,12 @@ class TelegramService extends BaseService
 
     public static function sendOrUpdate($content, $type = 'text')
     {
+        $last_message_id = Redis::client()->get('last_message_id:' . self::$key);
+
+        if ($last_message_id) {
+            self::$last_message_id = $last_message_id;
+        }
+
         if (!self::$last_message_id) {
             $data = self::sendTelegram($content, self::$chat_id, $type);
 
