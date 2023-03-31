@@ -58,9 +58,13 @@ class Progress implements ShouldQueue
 
         $adaptive_cards = trim(preg_replace('/\[\^(\d+)\^\]/', '', $this->response['adaptive_cards']));
 
-        $answer = preg_replace('/\[\^(\d+)\^\]/', '', $this->response['answer']);
+        $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $this->response['answer']);
 
-        $adaptive_cards = trim(str_replace($answer, '', $adaptive_cards));
+        $adaptive_cards = trim(preg_replace('/\n\n(.|\n)*$/', '', $adaptive_cards));
+
+        if($adaptive_cards == $answer){
+            $adaptive_cards = '';
+        }
 
         if (!trim($adaptive_cards ?: $answer)) {
             return true;
@@ -69,7 +73,7 @@ class Progress implements ShouldQueue
         $text = '';
 
         if ($this->response['numUserMessagesInConversation']) {
-            $text .= '(' . $this->response['numUserMessagesInConversation'] . '/' . $this->response['maxNumUserMessagesInConversation'] . ')';
+            $text .= '(' . $this->response['numUserMessagesInConversation'] . '/' . $this->response['maxNumUserMessagesInConversation'] . ')--生成中';
         }
 
         if ($text) {
@@ -77,7 +81,7 @@ class Progress implements ShouldQueue
         }
 
         if ($answer) {
-            $text .= $answer.PHP_EOL;
+            $text .= $answer . PHP_EOL;
         }
 
         if ($text) {
@@ -88,11 +92,9 @@ class Progress implements ShouldQueue
 
         $last_message_id = Redis::client()->get('last_message_id:' . $this->key);
 
-        if(Redis::connection()->client()->incr('nums:' . $this->key)>=5){
+        if (!Redis::connection()->client()->set('nums:' . $this->key, 1, ['nx', 'ex' => 5])) {
             return true;
         }
-
-        Redis::connection()->client()->expire('nums:' . $this->key, 3600);
 
         if (!$last_message_id) {
             $data = TelegramService::sendTelegram($text, $this->chat_id);
@@ -104,7 +106,7 @@ class Progress implements ShouldQueue
             $data = TelegramService::updateTelegram($text, $this->chat_id, $last_message_id);
         }
 
-        Log::info('error:'.$last_message_id,$data);
+//        Log::info('error:' . $last_message_id, $data);
 
         return $data;
     }

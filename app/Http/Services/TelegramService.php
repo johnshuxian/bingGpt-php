@@ -68,6 +68,8 @@ class TelegramService extends BaseService
 
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/' . $method[$type], $answer);
 
+//            Log::info($response->json());
+
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
             Log::info($e->getResponse()->getBody()->getContents());
@@ -90,6 +92,8 @@ class TelegramService extends BaseService
             ];
 
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/editMessageText', $answer);
+
+//            Log::info($response);
 
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -178,14 +182,18 @@ class TelegramService extends BaseService
 
                     $adaptive_cards = trim(preg_replace('/\[\^(\d+)\^\]/', '', $json['data']['adaptive_cards']));
 
-                    $answer = preg_replace('/\[\^(\d+)\^\]/', '', $json['data']['answer']);
+                    $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']);
 
-                    $adaptive_cards = trim(str_replace($answer, '', $adaptive_cards));
+                    $adaptive_cards = trim(preg_replace('/\n\n(.|\n)*$/', '', $adaptive_cards));
+
+                    if ($adaptive_cards == $answer) {
+                        $adaptive_cards = '';
+                    }
 
                     $text = '';
 
                     if ($json['data']['numUserMessagesInConversation']) {
-                        $text .= '(' . $json['data']['numUserMessagesInConversation'] . '/' . $json['data']['maxNumUserMessagesInConversation'] . ')';
+                        $text .= '(' . $json['data']['numUserMessagesInConversation'] . '/' . $json['data']['maxNumUserMessagesInConversation'] . ')--生成结束';
                     }
 
                     if ($text) {

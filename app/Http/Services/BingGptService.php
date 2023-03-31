@@ -26,16 +26,12 @@ class BingGptService extends BaseService
         set_time_limit(0);
     }
 
-    protected static $invocation_id;
+    protected static $invocation_id = 0;
 
     protected static $conversation = [];
 
     private static function conversation($chat_id)
     {
-        if (isset(self::$conversation[$chat_id])) {
-            return self::$conversation[$chat_id];
-        }
-
         if ($info = BingConversations::find($chat_id)) {
             self::$conversation[$chat_id] = $info;
 
@@ -71,17 +67,21 @@ class BingGptService extends BaseService
     {
         $bing = config('bing');
 
-        $replace = ['tone', 'format', 'length'];
-
-        $prompt = $bing['prompt'];
-
-        $prompt = str_replace('%text', $question, $prompt);
-
-        foreach ($replace as $item) {
-            $prompt = str_replace('%' . $item, $bing[$item], $prompt);
-        }
-
         $conversation = self::conversation($chat_id);
+
+        if (0 == self::$invocation_id) {
+            $replace = ['tone', 'format', 'length'];
+
+            $prompt = $bing['prompt'];
+
+            $prompt = str_replace('%text', $question, $prompt);
+
+            foreach ($replace as $item) {
+                $prompt = str_replace('%' . $item, $bing[$item], $prompt);
+            }
+        } else {
+            $prompt = $question;
+        }
 
         $info = [
             'arguments'    => [
@@ -92,7 +92,7 @@ class BingGptService extends BaseService
                         'deepleo',
                         'enable_debug_commands',
                         'disable_emoji_spoken_text',
-                        'responsible_ai_policy_235',
+                        //                        'responsible_ai_policy_235',
                         'enablemm',
                         'nocache',
                         'nosugg',
@@ -148,7 +148,7 @@ class BingGptService extends BaseService
                     'conversationId'        => $conversation->conversation_id,
                 ],
             ],
-            'invocationId' => '0',
+            'invocationId' => (string) self::$invocation_id,
             'target'       => 'chat',
             'type'         => 4,
         ];
@@ -201,6 +201,8 @@ class BingGptService extends BaseService
             ++$key;
 
             if ($key <= 3) {
+                Log::info('重试-4');
+
                 return $this->connectWss($prompt, $chat_id, $return_array, $key);
             }
 
@@ -225,6 +227,7 @@ class BingGptService extends BaseService
             try {
                 if (!$client->isConnected()) {
                     if (!$response['answer']) {
+                        $client->close();
                         $this->handshark($client, $prompt, $chat_id);
 
                         continue;
@@ -249,6 +252,8 @@ class BingGptService extends BaseService
 
                 if ($message) {
                     if (isset($message['error'])) {
+                        $client->close();
+
                         if ($return_array) {
                             return ['code' => 0, 'message' => $message['error']];
                         }
@@ -258,6 +263,8 @@ class BingGptService extends BaseService
 
                     if (isset($message['type']) && 2 == $message['type']) {
                         if (!isset($message['item']['messages'])) {
+                            $client->close();
+
                             if ($return_array) {
                                 return ['code' => 0, 'message' => $message['item']['result']['message']];
                             }
@@ -274,10 +281,12 @@ class BingGptService extends BaseService
                                         $response['numUserMessagesInConversation']    = $message['item']['throttling']['numUserMessagesInConversation'] ?? 0;
                                     }
 
-                                    $response['answer']         = $answer['text'];
+                                    $response['answer']         = $answer['text'] ?? '';
                                     $response['adaptive_cards'] = $answer['adaptiveCards'][0]['body'][0]['text'] ?? '';
 
                                     BingConversations::where('id', $chat_id)->increment('invocation_id');
+
+                                    $client->close();
 
                                     if (!$this->siri_use) {
                                         dispatch(new Progress(TelegramService::$bot_name, TelegramService::$bot_token, TelegramService::$chat_id, $response, TelegramService::$key));
@@ -293,6 +302,9 @@ class BingGptService extends BaseService
                         }
 
                         BingConversations::where('id', $chat_id)->increment('invocation_id');
+
+                        $client->close();
+
                         if ($return_array) {
                             return ['code' => 1, 'message' => '', 'data' => $response];
                         }
@@ -318,10 +330,18 @@ class BingGptService extends BaseService
                     }
 
                     if (isset($message['type']) && 7 == $message['type']) {
+                        Log::info('需要重连', $message);
+
+                        sleep(5);
+
                         ++$key;
 
+                        $client->close();
+
                         if ($key <= 3) {
-                            return $this->connectWss($prompt, $chat_id, $return_array, $key);
+                            Log::info('重试-7');
+
+                            return $this->connectWss('我没有收到，请重发一次', $chat_id, $return_array, $key);
                         }
 
                         if ($response['answer']) {
@@ -344,6 +364,8 @@ class BingGptService extends BaseService
                 if (time() - $start >= 360) {
                     // 超时仍未返回，返回最近的type 1的内容
 
+                    $client->close();
+
                     BingConversations::where('id', $chat_id)->increment('invocation_id');
 
                     if ($return_array) {
@@ -358,6 +380,8 @@ class BingGptService extends BaseService
                 ++$key;
 
                 if ($key <= 3) {
+                    Log::info('重试-6');
+
                     return $this->connectWss($prompt, $chat_id, $return_array, $key);
                 }
 
@@ -438,6 +462,7 @@ class BingGptService extends BaseService
     public function ask(string $question, $chat_id, $return_array = false, $siri_use = false)
     {
         $this->siri_use = $siri_use;
+        Log::info('重试-5');
 
         return $this->connectWss($question, $chat_id, $return_array);
     }
