@@ -10,6 +10,7 @@ use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 use WebSocket\Client;
 
 class BingGptService extends BaseService
@@ -340,6 +341,11 @@ class BingGptService extends BaseService
 
                         if ($key <= 3) {
                             Log::info('重试-7');
+
+                            //删除原有的reids-key
+                            Redis::connection()->client()->del('last_message_id:' . TelegramService::$key);
+
+                            TelegramService::$last_message_id = 0;
 
                             return $this->connectWss('我没有收到，请重发一次', $chat_id, $return_array, $key);
                         }
