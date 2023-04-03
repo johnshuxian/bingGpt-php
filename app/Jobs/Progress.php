@@ -24,7 +24,11 @@ class Progress implements ShouldQueue
     private mixed $response;
 
     private mixed $key;
-    private $microtime;
+
+    /**
+     * @var false|mixed
+     */
+    private mixed $return_redis;
 
     /**
      * Create a new job instance.
@@ -36,13 +40,14 @@ class Progress implements ShouldQueue
      * @param mixed $response
      * @param mixed $key
      */
-    public function __construct($bot_name, $bot_token, $chat_id, $response, $key)
+    public function __construct($bot_name, $bot_token, $chat_id, $response, $key,$return_redis = false)
     {
         $this->bot_name      = $bot_name;
         $this->bot_token     = $bot_token;
         $this->chat_id       = $chat_id;
         $this->response      = $response;
         $this->key           = $key;
+        $this->return_redis  = $return_redis;
     }
 
     /**
@@ -51,6 +56,13 @@ class Progress implements ShouldQueue
     public function handle()
     {
         TelegramService::bot($this->bot_token, $this->bot_name);
+
+        if($this->return_redis){
+            $text = Redis::connection()->client()->get('last_message_answer:'.$this->key);
+
+            Log::info('发送最新的一条消息:'.$text);
+            goto go;
+        }
 
         if ($this->response['answer'] == $this->response['adaptive_cards']) {
             $this->response['adaptive_cards'] = '';
@@ -73,7 +85,7 @@ class Progress implements ShouldQueue
         $text = '';
 
         if ($this->response['numUserMessagesInConversation']) {
-            $text .= '(' . $this->response['numUserMessagesInConversation'] . '/' . $this->response['maxNumUserMessagesInConversation'] . ')--生成中';
+            $text .= '(' . $this->response['numUserMessagesInConversation'] . '/' . $this->response['maxNumUserMessagesInConversation'] . ')';
         }
 
         if ($text) {
@@ -90,11 +102,17 @@ class Progress implements ShouldQueue
 
         $text .= $adaptive_cards;
 
-        $last_message_id = Redis::client()->get('last_message_id:' . $this->key);
+        Log::info($text);
+
+        Redis::connection()->client()->set('last_message_answer:'.$this->key, $text,['ex'=>3600]);
 
         if (!Redis::connection()->client()->set('nums:' . $this->key, 1, ['nx', 'ex' => 5])) {
             return true;
         }
+
+        go:
+
+        $last_message_id = Redis::client()->get('last_message_id:' . $this->key);
 
         if (!$last_message_id) {
             $data = TelegramService::sendTelegram($text, $this->chat_id);
@@ -104,6 +122,11 @@ class Progress implements ShouldQueue
             Redis::connection()->client()->set('last_message_id:' . $this->key, $last_message_id, ['nx', 'ex' => 3600]);
         } else {
             $data = TelegramService::updateTelegram($text, $this->chat_id, $last_message_id);
+        }
+
+        if (!$this->return_redis){
+            //5秒之后再次执行
+            dispatch(new Progress($this->bot_name, $this->bot_token, $this->chat_id, $this->response, $this->key,true))->delay(now()->addSeconds(5));
         }
 
 //        Log::info('error:' . $last_message_id, $data);

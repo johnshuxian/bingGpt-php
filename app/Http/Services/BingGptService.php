@@ -246,11 +246,30 @@ class BingGptService extends BaseService
                     return $this->success($response);
                 }
 
-                $info = $client->receive();
+                $old = $info = $client->receive();
 
                 $info = explode("\x1e", $info);
 
                 $message = json_decode($info[0] ?? '', true);
+
+                if (time() - $ping >= 30) {
+                    $client->text(self::messageIdentifier(['type' => 6]));
+                    $ping = time();
+                }
+
+                if (time() - $start >= 360) {
+                    // 超时仍未返回，返回最近的type 1的内容
+
+                    $client->close();
+
+                    BingConversations::where('id', $chat_id)->increment('invocation_id');
+
+                    if ($return_array) {
+                        return ['code' => 1, 'message' => '', 'data' => $response];
+                    }
+
+                    return $this->success($response);
+                }
 
 //                Log::info(json_encode($message));
 
@@ -346,13 +365,15 @@ class BingGptService extends BaseService
                         $response['answer']         = $message['arguments'][0]['messages'][0]['text'] ?? '';
                         $response['adaptive_cards'] = $message['arguments'][0]['messages'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
 
-                        Log::info('正在返回答案：' . $response['answer'] ?: $response['adaptive_cards']);
+//                        Log::info('正在返回答案：' . $response['answer'] ?: $response['adaptive_cards']);
 
                         if ($response['answer'] || $response['adaptive_cards']) {
                             if (!$this->siri_use) {
                                 dispatch(new Progress(TelegramService::$bot_name, TelegramService::$bot_token, TelegramService::$chat_id, $response, TelegramService::$key));
                             }
                         }
+
+                        continue;
                     }
 
                     if (isset($message['type']) && 7 == $message['type']) {
@@ -394,24 +415,7 @@ class BingGptService extends BaseService
                     }
                 }
 
-                if (time() - $ping >= 30) {
-                    $client->text(self::messageIdentifier(['type' => 6]));
-                    $ping = time();
-                }
-
-                if (time() - $start >= 360) {
-                    // 超时仍未返回，返回最近的type 1的内容
-
-                    $client->close();
-
-                    BingConversations::where('id', $chat_id)->increment('invocation_id');
-
-                    if ($return_array) {
-                        return ['code' => 1, 'message' => '', 'data' => $response];
-                    }
-
-                    return $this->success($response);
-                }
+                Log::info('等待中...'.$old);
             } catch (\WebSocket\ConnectionException $e) {
                 Log::info($e->getMessage());
 
