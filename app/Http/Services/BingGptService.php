@@ -19,7 +19,7 @@ class BingGptService extends BaseService
      * @var false|mixed
      */
     private mixed $siri_use;
-    private $max_try = 5;
+    private $max_try = 10;
 
     public function __construct()
     {
@@ -91,7 +91,7 @@ class BingGptService extends BaseService
                     'source'                => 'cib',
                     'optionsSets'           => [
                         'nlu_direct_response_filter',
-//                        'deepleo',
+                        'deepleo',
                         'disable_emoji_spoken_text',
                         //                        "responsible_ai_policy_235",
                         'enablemm',
@@ -130,6 +130,7 @@ class BingGptService extends BaseService
                         'udswebdesc2',
                         '329v3pwebtrunc',
                     ],
+                    'traceId'               => getRanHex(),
                     'verbosity'             => 'verbose',
                     'isStartOfSession'      => 0 === self::$invocation_id,
                     'message'               => [
@@ -175,6 +176,8 @@ class BingGptService extends BaseService
 
     public function connectWss(string $prompt, $chat_id, $return_array = false, $key = 0)
     {
+        Log::info('第' . ($key + 1) . '次重试');
+
         $ping = $start = time();
 
         $context = stream_context_create();
@@ -184,7 +187,7 @@ class BingGptService extends BaseService
         try {
             $client = new Client('wss://sydney.bing.com/sydney/ChatHub', [
                 'headers'       => config('bing.wss_headers'),
-                'timeout'       => 120,
+                'timeout'       => 300,
                 'fragment_size' => 409600,
                 'context'       => $context,
                 //            'logger'       => Log::channel('daily'),
@@ -197,10 +200,12 @@ class BingGptService extends BaseService
 
             Log::error($exception->getMessage());
 
+            sleep(2);
+
             ++$key;
 
             if ($key <= $this->max_try) {
-                Log::info('重试-4');
+                Log::info('连接出错：' . $exception->getMessage());
 
                 return $this->connectWss($prompt, $chat_id, $return_array, $key);
             }
@@ -258,11 +263,7 @@ class BingGptService extends BaseService
                         ++$key;
 
                         if ($key <= $this->max_try) {
-                            Log::info('重试-1');
-
-                            Redis::connection()->client()->del('last_message_id:' . TelegramService::$key);
-
-                            TelegramService::$last_message_id = 0;
+                            Log::info('返回报错：' . $message['error']);
 
                             return $this->connectWss('我没有收到，请重发一次', $chat_id, $return_array, $key);
                         }
@@ -277,6 +278,16 @@ class BingGptService extends BaseService
                     if (isset($message['type']) && 2 == $message['type']) {
                         if (!isset($message['item']['messages'])) {
                             $client->close();
+
+                            sleep(5);
+
+                            ++$key;
+
+                            if ($key <= $this->max_try) {
+                                Log::info('无正常返回值报错：' . $message['item']['result']['message']);
+
+                                return $this->connectWss($prompt, $chat_id, $return_array, $key);
+                            }
 
                             if ($return_array) {
                                 return ['code' => 0, 'message' => $message['item']['result']['message']];
@@ -335,6 +346,8 @@ class BingGptService extends BaseService
                         $response['answer']         = $message['arguments'][0]['messages'][0]['text'] ?? '';
                         $response['adaptive_cards'] = $message['arguments'][0]['messages'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
 
+                        Log::info('正在返回答案：' . $response['answer'] ?: $response['adaptive_cards']);
+
                         if ($response['answer'] || $response['adaptive_cards']) {
                             if (!$this->siri_use) {
                                 dispatch(new Progress(TelegramService::$bot_name, TelegramService::$bot_token, TelegramService::$chat_id, $response, TelegramService::$key));
@@ -352,7 +365,7 @@ class BingGptService extends BaseService
                         ++$key;
 
                         if ($key <= $this->max_try) {
-                            Log::info('重试-7');
+                            Log::info('需要重连');
 
                             // 删除原有的reids-key
                             Redis::connection()->client()->del('last_message_id:' . TelegramService::$key);
@@ -402,10 +415,12 @@ class BingGptService extends BaseService
             } catch (\WebSocket\ConnectionException $e) {
                 Log::info($e->getMessage());
 
+                sleep(2);
+
                 ++$key;
 
                 if ($key <= $this->max_try) {
-                    Log::info('重试-6');
+                    Log::info('中途连接出错，重连：' . $e->getMessage());
 
                     return $this->connectWss($prompt, $chat_id, $return_array, $key);
                 }
@@ -487,7 +502,7 @@ class BingGptService extends BaseService
     public function ask(string $question, $chat_id, $return_array = false, $siri_use = false)
     {
         $this->siri_use = $siri_use;
-        Log::info('重试-5');
+        Log::info('开始询问');
 
         return $this->connectWss($question, $chat_id, $return_array);
     }

@@ -69,3 +69,19 @@ if (!function_exists('dataConvert')) {
         return $temp;
     }
 }
+
+if (!function_exists('getRanHex')) {
+    function getRanHex($length = 32): string
+    {
+        $characters        = '0123456789abcdef';
+        $characters_length = strlen($characters);
+
+        $result = '';
+
+        for ($i = 0; $i < $length; ++$i) {
+            $result .= $characters[rand(0, $characters_length - 1)];
+        }
+
+        return $result;
+    }
+}
