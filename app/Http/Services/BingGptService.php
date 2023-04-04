@@ -413,9 +413,27 @@ class BingGptService extends BaseService
 
                         $ping = time();
                     }
+
+                    if (isset($message['type']) && 3 == $message['type']) {
+                        // 结束
+                        $client->close();
+
+                        BingConversations::where('id', $chat_id)->increment('invocation_id');
+
+                        if ($return_array) {
+                            return ['code' => 1, 'message' => '', 'data' => $response];
+                        }
+
+                        return $this->success($response);
+                    }
                 }
 
-                Log::info('等待中...'.$old);
+                if ($response['answer'] || $response['adaptive_cards']) {
+                    if (!$this->siri_use) {
+                        dispatch(new Progress(TelegramService::$bot_name, TelegramService::$bot_token, TelegramService::$chat_id, $response, TelegramService::$key));
+                    }
+                }
+                Log::info('等待中...' . $old);
             } catch (\WebSocket\ConnectionException $e) {
                 Log::info($e->getMessage());
 
@@ -508,6 +526,13 @@ class BingGptService extends BaseService
         $this->siri_use = $siri_use;
         Log::info('开始询问');
 
-        return $this->connectWss($question, $chat_id, $return_array);
+        $info = $this->connectWss($question, $chat_id, $return_array);
+
+        if (isset($info['numUserMessagesInConversation'])) {
+            // 修改invocation_id
+            BingConversations::where('id', $chat_id)->update(['invocation_id' => $info['numUserMessagesInConversation']]);
+        }
+
+        return $info;
     }
 }
