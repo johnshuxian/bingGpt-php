@@ -459,6 +459,8 @@ class TelegramService extends BaseService
             $data = self::sendTelegram($content, self::$chat_id, $type, $adaptive_cards);
 
             self::$last_message_id = $data['data']['result']['message_id'] ?? 0;
+
+            Redis::connection()->client()->set('last_message_id:' . self::$key, self::$last_message_id, ['ex' => 3600]);
         } else {
             $data = self::updateTelegram($content, self::$chat_id, self::$last_message_id, $adaptive_cards);
         }

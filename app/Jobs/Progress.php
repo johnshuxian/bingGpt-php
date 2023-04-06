@@ -126,12 +126,14 @@ class Progress implements ShouldQueue
 
         $last_message_id = Redis::client()->get('last_message_id:' . $this->key);
 
+        Log::info($this->key . ':' . $last_message_id);
+
         if (!$last_message_id) {
             $data = TelegramService::sendTelegram($text, $this->chat_id, 'text', [], $this->response['adaptive_cards']);
 
             $last_message_id = $data['data']['result']['message_id'] ?? 0;
 
-            Redis::connection()->client()->set('last_message_id:' . $this->key, $last_message_id, ['nx', 'ex' => 3600]);
+            Redis::connection()->client()->set('last_message_id:' . $this->key, $last_message_id, ['ex' => 3600]);
         } else {
             $data = TelegramService::updateTelegram($text, $this->chat_id, $last_message_id, $this->response['adaptive_cards']);
         }
