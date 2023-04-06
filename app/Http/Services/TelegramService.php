@@ -49,7 +49,7 @@ class TelegramService extends BaseService
         }
     }
 
-    public static function sendTelegram($content, $telegram_chat_id, $type = 'text', $prompt = '点击查看'): array
+    public static function sendTelegram($content, $telegram_chat_id, $type = 'text', $prompt = '点击查看', $replyInlineMarkup = []): array
     {
         try {
             $answer = [
@@ -66,9 +66,15 @@ class TelegramService extends BaseService
                 $answer['caption'] = $prompt;
             }
 
+            if (!empty($replyInlineMarkup)) {
+                $answer['reply_markup'] = $replyInlineMarkup;
+
+                Log::info('debug:',$replyInlineMarkup);
+            }
+
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/' . $method[$type], $answer);
 
-//            Log::info($response->json());
+            Log::info($response);
 
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -82,7 +88,7 @@ class TelegramService extends BaseService
         }
     }
 
-    public static function updateTelegram($content, $telegram_chat_id, $message_id): array
+    public static function updateTelegram($content, $telegram_chat_id, $message_id, $replyInlineMarkup = []): array
     {
         try {
             $answer = [
@@ -91,9 +97,15 @@ class TelegramService extends BaseService
                 'text'       => $content,
             ];
 
+            if (!empty($replyInlineMarkup)) {
+                $answer['reply_markup'] = $replyInlineMarkup;
+
+                Log::info('debug:',$replyInlineMarkup);
+            }
+
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/editMessageText', $answer);
 
-//            Log::info($response);
+            Log::info($response);
 
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -176,19 +188,7 @@ class TelegramService extends BaseService
                 if ($json['code']) {
                     Log::info($username . ': ' . $text);
 
-                    if ($json['data']['answer'] == $json['data']['adaptive_cards']) {
-                        $json['data']['adaptive_cards'] = '';
-                    }
-
-                    $adaptive_cards = trim(preg_replace('/\[\^(\d+)\^\]/', '', $json['data']['adaptive_cards']));
-
                     $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $json['data']['answer']);
-
-                    $adaptive_cards = trim(preg_replace('/\n\n(.|\n)*$/', '', $adaptive_cards));
-
-                    if ($adaptive_cards == $answer) {
-                        $adaptive_cards = '';
-                    }
 
                     $text = '';
 
@@ -204,12 +204,6 @@ class TelegramService extends BaseService
                         $text .= $answer . PHP_EOL;
                     }
 
-                    if ($text) {
-                        $text .= PHP_EOL;
-                    }
-
-                    $text .= $adaptive_cards;
-
                     Log::info(self::$bot_name . ': ' . $text);
 
                     $chat->record([
@@ -221,7 +215,7 @@ class TelegramService extends BaseService
                         'is_bot'           => 1,
                     ]);
 
-                    return self::sendOrUpdate($text);
+                    return self::sendOrUpdate($text, 'text', $json['data']['adaptive_cards']);
                 }
 
                 return self::sendTelegram($json['message'] ?? '', $params['message']['chat']['id']);
@@ -442,7 +436,7 @@ class TelegramService extends BaseService
         return 200;
     }
 
-    public static function sendOrUpdate($content, $type = 'text')
+    public static function sendOrUpdate($content, $type = 'text', $adaptive_cards = [])
     {
         $last_message_id = Redis::client()->get('last_message_id:' . self::$key);
 
@@ -451,11 +445,11 @@ class TelegramService extends BaseService
         }
 
         if (!self::$last_message_id) {
-            $data = self::sendTelegram($content, self::$chat_id, $type);
+            $data = self::sendTelegram($content, self::$chat_id, $type, $adaptive_cards);
 
             self::$last_message_id = $data['data']['result']['message_id'] ?? 0;
         } else {
-            $data = self::updateTelegram($content, self::$chat_id, self::$last_message_id);
+            $data = self::updateTelegram($content, self::$chat_id, self::$last_message_id, $adaptive_cards);
         }
 
         return $data;

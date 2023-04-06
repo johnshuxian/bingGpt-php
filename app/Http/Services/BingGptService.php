@@ -220,7 +220,8 @@ class BingGptService extends BaseService
         $response = [
             'ask'                              => $prompt,
             'answer'                           => '',
-            'adaptive_cards'                   => '',
+            'adaptive_cards'                   => [],
+            'suggested_responses'              => [],
             'maxNumUserMessagesInConversation' => 0,
             'numUserMessagesInConversation'    => 0,
         ];
@@ -324,8 +325,9 @@ class BingGptService extends BaseService
                                         $response['numUserMessagesInConversation']    = $message['item']['throttling']['numUserMessagesInConversation'] ?? 0;
                                     }
 
-                                    $response['answer']         = $answer['text'] ?? '';
-                                    $response['adaptive_cards'] = $answer['adaptiveCards'][0]['body'][0]['text'] ?? '';
+                                    $response['answer']              = $answer['text'] ?? '';
+                                    $response['adaptive_cards']      = $answer['sourceAttributions'] ?? [];
+                                    $response['suggested_responses'] = array_column($answer['suggestedResponses'] ?? [], 'text');
 
                                     BingConversations::where('id', $chat_id)->increment('invocation_id');
 
@@ -363,11 +365,16 @@ class BingGptService extends BaseService
                         }
 
                         $response['answer']         = $message['arguments'][0]['messages'][0]['text'] ?? '';
-                        $response['adaptive_cards'] = $message['arguments'][0]['messages'][0]['adaptiveCards'][0]['body'][0]['text'] ?? '';
+
+                        if (!isset($message['arguments'][0]['messages'][0]['messageType'])) {
+                            $response['adaptive_cards'] = $message['arguments'][0]['messages'][0]['sourceAttributions'] ?? [];
+
+                            $response['suggested_responses'] = array_column($message['arguments'][0]['messages'][0]['suggestedResponses'] ?? [], 'text');
+                        }
 
 //                        Log::info('正在返回答案：' . $response['answer'] ?: $response['adaptive_cards']);
 
-                        if ($response['answer'] || $response['adaptive_cards']) {
+                        if ($response['answer']) {
                             if (!$this->siri_use) {
                                 dispatch(new Progress(TelegramService::$bot_name, TelegramService::$bot_token, TelegramService::$chat_id, $response, TelegramService::$key));
                             }
@@ -428,7 +435,7 @@ class BingGptService extends BaseService
                     }
                 }
 
-                if ($response['answer'] || $response['adaptive_cards']) {
+                if ($response['answer']) {
                     if (!$this->siri_use) {
                         dispatch(new Progress(TelegramService::$bot_name, TelegramService::$bot_token, TelegramService::$chat_id, $response, TelegramService::$key));
                     }
@@ -528,9 +535,37 @@ class BingGptService extends BaseService
 
         $info = $this->connectWss($question, $chat_id, $return_array);
 
-        if (isset($info['numUserMessagesInConversation'])) {
+        if (isset($info['data']['numUserMessagesInConversation'])) {
             // 修改invocation_id
-            BingConversations::where('id', $chat_id)->update(['invocation_id' => $info['numUserMessagesInConversation']]);
+            BingConversations::where('id', $chat_id)->update(['invocation_id' => $info['data']['numUserMessagesInConversation']]);
+        }
+
+        if (isset($info['data']['adaptive_cards'])) {
+            $arr = [];
+
+            foreach ($info['data']['adaptive_cards'] as $key => $value) {
+                $k = (int) $key + 1;
+
+                $arr['inline_keyboard'][] = [
+                    [
+                        'text' => "[{$k}] " . $value['providerDisplayName'],
+                        'url'  => $value['seeMoreUrl'],
+                    ],
+                ];
+            }
+
+            foreach ($info['data']['suggested_responses'] as $key => $value) {
+                $k = (int) $key + 1;
+
+                $arr['inline_keyboard'][] = [
+                    [
+                        'text'                             => "[推测{$k}] " . $value,
+                        'switch_inline_query_current_chat' => $value,
+                    ]
+                ];
+            }
+
+            $info['data']['adaptive_cards'] = $arr;
         }
 
         return $info;

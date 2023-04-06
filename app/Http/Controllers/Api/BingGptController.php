@@ -16,16 +16,17 @@ class BingGptController extends Controller
         return $gptService->createConversation();
     }
 
-    public function ask(Request $request){
-        $question = $request->input('prompt','');
-        $chat_id  = $request->input('chatId',0);
+    public function ask(Request $request)
+    {
+        $question = $request->input('prompt', '');
+        $chat_id  = $request->input('chatId', 0);
 
-        if(!$question){
+        if (!$question) {
             return $this->fail(ResponseEnum::CLIENT_PARAMETER_ERROR);
         }
 
         $gptService = BingGptService::getInstance();
 
-        return $gptService->ask($question,$chat_id);
+        return $this->success($gptService->ask($question, $chat_id, true, true));
     }
 }

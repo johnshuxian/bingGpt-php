@@ -39,8 +39,9 @@ class Progress implements ShouldQueue
      * @param mixed $text
      * @param mixed $response
      * @param mixed $key
+     * @param mixed $return_redis
      */
-    public function __construct($bot_name, $bot_token, $chat_id, $response, $key,$return_redis = false)
+    public function __construct($bot_name, $bot_token, $chat_id, $response, $key, $return_redis = false)
     {
         $this->bot_name      = $bot_name;
         $this->bot_token     = $bot_token;
@@ -57,28 +58,15 @@ class Progress implements ShouldQueue
     {
         TelegramService::bot($this->bot_token, $this->bot_name);
 
-        if($this->return_redis){
-            $text = Redis::connection()->client()->get('last_message_answer:'.$this->key);
+        if ($this->return_redis) {
+            $this->response = json_decode(Redis::connection()->client()->get('last_message_answer:' . $this->key), true);
 
-            Log::info('发送最新的一条消息:'.$text);
-            goto go;
+            Log::info('发送最新的一条消息:' . $this->response['answer']);
         }
-
-        if ($this->response['answer'] == $this->response['adaptive_cards']) {
-            $this->response['adaptive_cards'] = '';
-        }
-
-        $adaptive_cards = trim(preg_replace('/\[\^(\d+)\^\]/', '', $this->response['adaptive_cards']));
 
         $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $this->response['answer']);
 
-        $adaptive_cards = trim(preg_replace('/\n\n(.|\n)*$/', '', $adaptive_cards));
-
-        if($adaptive_cards == $answer){
-            $adaptive_cards = '';
-        }
-
-        if (!trim($adaptive_cards ?: $answer)) {
+        if (!trim($answer)) {
             return true;
         }
 
@@ -96,37 +84,61 @@ class Progress implements ShouldQueue
             $text .= $answer . PHP_EOL;
         }
 
-        if ($text) {
-            $text .= PHP_EOL;
-        }
-
-        $text .= $adaptive_cards;
-
         Log::info($text);
 
-        Redis::connection()->client()->set('last_message_answer:'.$this->key, $text,['ex'=>3600]);
+        if ($this->return_redis) {
+            goto go;
+        }
+
+        Redis::connection()->client()->set('last_message_answer:' . $this->key, json_encode($this->response), ['ex' => 3600]);
 
         if (!Redis::connection()->client()->set('nums:' . $this->key, 1, ['nx', 'ex' => 5])) {
             return true;
         }
+
+        $arr = [];
+
+        foreach ($this->response['adaptive_cards'] as $key => $value) {
+            $k = (int) $key + 1;
+
+            $arr['inline_keyboard'][] = [
+                [
+                    'text' => "[{$k}] " . $value['providerDisplayName'],
+                    'url'  => $value['seeMoreUrl'],
+                ],
+            ];
+        }
+
+        foreach ($this->response['suggested_responses'] as $key => $value) {
+            $k = (int) $key + 1;
+
+            $arr['inline_keyboard'][] = [
+                [
+                    'text'                             => "[推测{$k}] " . $value,
+                    'switch_inline_query_current_chat' => $value,
+                ],
+            ];
+        }
+
+        $this->response['adaptive_cards'] = $arr;
 
         go:
 
         $last_message_id = Redis::client()->get('last_message_id:' . $this->key);
 
         if (!$last_message_id) {
-            $data = TelegramService::sendTelegram($text, $this->chat_id);
+            $data = TelegramService::sendTelegram($text, $this->chat_id, 'text', [], $this->response['adaptive_cards']);
 
             $last_message_id = $data['data']['result']['message_id'] ?? 0;
 
             Redis::connection()->client()->set('last_message_id:' . $this->key, $last_message_id, ['nx', 'ex' => 3600]);
         } else {
-            $data = TelegramService::updateTelegram($text, $this->chat_id, $last_message_id);
+            $data = TelegramService::updateTelegram($text, $this->chat_id, $last_message_id, $this->response['adaptive_cards']);
         }
 
-        if (!$this->return_redis){
-            //5秒之后再次执行
-            dispatch(new Progress($this->bot_name, $this->bot_token, $this->chat_id, $this->response, $this->key,true))->delay(now()->addSeconds(5));
+        if (!$this->return_redis) {
+            // 5秒之后再次执行
+            dispatch(new self($this->bot_name, $this->bot_token, $this->chat_id, $this->response, $this->key, true))->delay(now()->addSeconds(5));
         }
 
 //        Log::info('error:' . $last_message_id, $data);
