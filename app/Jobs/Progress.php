@@ -58,93 +58,93 @@ class Progress implements ShouldQueue
     {
         TelegramService::bot($this->bot_token, $this->bot_name);
 
-        if ($this->return_redis) {
+        //争夺锁
+        $while = Redis::connection()->client()->set('loop:'.$this->key, 1, ['nx', 'ex' => 3600]);
+
+        while($while){
+            if (!Redis::connection()->client()->set('nums:' . $this->key, 1, ['nx', 'ex' => 5])) {
+                sleep(0.1);
+                continue;
+            }
+
             $this->response = json_decode(Redis::connection()->client()->get('last_message_answer:' . $this->key), true);
 
-            Log::info('发送最新的一条消息:' . $this->response['answer']);
+            if(!$this->response){
+                //释放锁
+                Redis::connection()->client()->del('loop:'.$this->key);
+
+                return [];
+            }
+
+            $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $this->response['answer']);
+
+            if (!trim($answer)) {
+                continue;
+            }
+
+            $text = '';
+
+            if ($this->response['numUserMessagesInConversation']) {
+                $text .= '(' . $this->response['numUserMessagesInConversation'] . '/' . $this->response['maxNumUserMessagesInConversation'] . ')';
+            }
+
+            if ($text) {
+                $text .= PHP_EOL;
+            }
+
+            if ($answer) {
+                $text .= $answer . PHP_EOL;
+            }
+
+            Log::info($text);
+
+            $arr = [];
+
+            foreach ($this->response['adaptive_cards'] as $key => $value) {
+                $k = (int) $key + 1;
+
+                $arr['inline_keyboard'][] = [
+                    [
+                        'text' => "[{$k}] " . $value['providerDisplayName'],
+                        'url'  => $value['seeMoreUrl'],
+                    ],
+                ];
+            }
+
+            foreach ($this->response['suggested_responses'] as $key => $value) {
+                $k = (int) $key + 1;
+
+                $arr['inline_keyboard'][] = [
+                    [
+                        'text'                             => "[推测{$k}] " . $value,
+                        'switch_inline_query_current_chat' => $value,
+                    ],
+                ];
+            }
+
+            $this->response['adaptive_cards'] = $arr;
+
+            $last_message_id = Redis::client()->get('last_message_id:' . $this->key);
+
+            Log::info($this->key . ':' . $last_message_id);
+
+            if(!Redis::connection()->client()->exists('last_message_answer:' . $this->key)){
+                return true;
+            }
+
+            if (!$last_message_id) {
+                $data = TelegramService::sendTelegram($text, $this->chat_id, 'text', [], $this->response['adaptive_cards']);
+
+                $last_message_id = $data['data']['result']['message_id'] ?? 0;
+
+                Redis::connection()->client()->set('last_message_id:' . $this->key, $last_message_id, ['ex' => 3600]);
+            } else {
+                $data = TelegramService::updateTelegram($text, $this->chat_id, $last_message_id, $this->response['adaptive_cards']);
+            }
+
+            Log::info('error:' . $last_message_id, $data);
         }
 
-        $answer = preg_replace('/\[\^(\d+)\^\]/', '[$1]', $this->response['answer']);
-
-        if (!trim($answer)) {
-            return true;
-        }
-
-        $text = '';
-
-        if ($this->response['numUserMessagesInConversation']) {
-            $text .= '(' . $this->response['numUserMessagesInConversation'] . '/' . $this->response['maxNumUserMessagesInConversation'] . ')';
-        }
-
-        if ($text) {
-            $text .= PHP_EOL;
-        }
-
-        if ($answer) {
-            $text .= $answer . PHP_EOL;
-        }
-
-        Log::info($text);
-
-        if ($this->return_redis) {
-            goto go;
-        }
-
-        Redis::connection()->client()->set('last_message_answer:' . $this->key, json_encode($this->response), ['ex' => 3600]);
-
-        if (!Redis::connection()->client()->set('nums:' . $this->key, 1, ['nx', 'ex' => 5])) {
-            return true;
-        }
-
-        $arr = [];
-
-        foreach ($this->response['adaptive_cards'] as $key => $value) {
-            $k = (int) $key + 1;
-
-            $arr['inline_keyboard'][] = [
-                [
-                    'text' => "[{$k}] " . $value['providerDisplayName'],
-                    'url'  => $value['seeMoreUrl'],
-                ],
-            ];
-        }
-
-        foreach ($this->response['suggested_responses'] as $key => $value) {
-            $k = (int) $key + 1;
-
-            $arr['inline_keyboard'][] = [
-                [
-                    'text'                             => "[推测{$k}] " . $value,
-                    'switch_inline_query_current_chat' => $value,
-                ],
-            ];
-        }
-
-        $this->response['adaptive_cards'] = $arr;
-
-        go:
-
-        $last_message_id = Redis::client()->get('last_message_id:' . $this->key);
-
-        Log::info($this->key . ':' . $last_message_id);
-
-        if (!$last_message_id) {
-            $data = TelegramService::sendTelegram($text, $this->chat_id, 'text', [], $this->response['adaptive_cards']);
-
-            $last_message_id = $data['data']['result']['message_id'] ?? 0;
-
-            Redis::connection()->client()->set('last_message_id:' . $this->key, $last_message_id, ['ex' => 3600]);
-        } else {
-            $data = TelegramService::updateTelegram($text, $this->chat_id, $last_message_id, $this->response['adaptive_cards']);
-        }
-
-        if (!$this->return_redis) {
-            // 5秒之后再次执行
-            dispatch(new self($this->bot_name, $this->bot_token, $this->chat_id, $this->response, $this->key, true))->delay(now()->addSeconds(5));
-        }
-
-//        Log::info('error:' . $last_message_id, $data);
-
-        return $data;
+        return true;
     }
 }
