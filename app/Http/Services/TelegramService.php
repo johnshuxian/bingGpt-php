@@ -65,11 +65,16 @@ class TelegramService extends BaseService
             if ('photo' == $type) {
                 $answer['caption'] = $prompt;
             }
+            // 转译telegram特殊字符
+//                $answer[$type] = '```' . PHP_EOL . str_replace(['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'], ['\\_', '\\*', '\\[', '\\]', '\\(', '\\)', '\\~', '\\`', '\\>', '\\#', '\\+', '\\-', '\\=', '\\|', '\\{', '\\}', '\\.', '\\!'], $answer[$type]) . PHP_EOL . '```';
+//                $answer[$type] = '```' . $answer[$type] . PHP_EOL . '```';
+//
+//                $answer['parse_mode'] = 'MarkdownV2';
 
             if (!empty($replyInlineMarkup)) {
                 $answer['reply_markup'] = $replyInlineMarkup;
 
-                Log::info('debug:',$replyInlineMarkup);
+                Log::info('debug:', $answer);
             }
 
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/' . $method[$type], $answer);
@@ -97,10 +102,16 @@ class TelegramService extends BaseService
                 'text'       => $content,
             ];
 
+            // 转译telegram特殊字符
+//            $answer['text'] = '```' . PHP_EOL . str_replace(['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'], ['\\_', '\\*', '\\[', '\\]', '\\(', '\\)', '\\~', '\\`', '\\>', '\\#', '\\+', '\\-', '\\=', '\\|', '\\{', '\\}', '\\.', '\\!'], $answer['text']) . PHP_EOL . '```';
+//            $answer['text'] = '```' . $answer['text'] . PHP_EOL . '```';
+
+//            $answer['parse_mode'] = 'MarkdownV2';
+
             if (!empty($replyInlineMarkup)) {
                 $answer['reply_markup'] = $replyInlineMarkup;
 
-                Log::info('debug:',$replyInlineMarkup);
+                Log::info('debug:', $answer);
             }
 
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/editMessageText', $answer);
