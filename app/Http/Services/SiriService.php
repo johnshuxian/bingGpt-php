@@ -128,6 +128,8 @@ class SiriService extends BaseService
         if (!$chat_id) {
             $json = BingGptService::getInstance()->createConversation(true);
 
+            Log::info('bing createConversation: ' . json_encode($json));
+
             if (!$json['code']) {
                 return $json['message'];
             }
@@ -142,6 +144,14 @@ class SiriService extends BaseService
         try {
             $json = BingGptService::getInstance()->ask($text, $chat_id, true, true);
 
+            if($json['code'] == 1){
+                //成功
+                $answer = $json['data']['answer'];
+            }else{
+                //失败
+                $answer = $json['message'];
+            }
+
             $chat->record([
                 'username'        => 'johns',
                 'content'         => $text,
@@ -153,7 +163,7 @@ class SiriService extends BaseService
 
             $chat->record([
                 'username'        => self::$bot_name,
-                'content'         => $json['data']['answer'],
+                'content'         => $answer,
                 'telegram_chat_id'=> $siri_id,
                 'bing_id'         => $chat_id,
                 'chat_type'       => 'private',
@@ -162,11 +172,11 @@ class SiriService extends BaseService
 
             Log::info('johns: ' . $text);
 
-            Log::info(self::$bot_name . ': ' . $json['data']['answer']);
+            Log::info(self::$bot_name . ': ' . $answer);
 
-            $answer = preg_replace('/\[\^(\d+)\^\]/', '', $json['data']['answer']);
+            $answer = preg_replace('/\[\^(\d+)\^\]/', '', $answer);
 
-            if ($json['data']['numUserMessagesInConversation'] != 0 && $json['data']['numUserMessagesInConversation'] == $json['data']['maxNumUserMessagesInConversation']) {
+            if ($json['code'] == 1 && $json['data']['numUserMessagesInConversation'] != 0 && $json['data']['numUserMessagesInConversation'] == $json['data']['maxNumUserMessagesInConversation']) {
                 $answer = $answer . '，回合数已用完，已自动重置';
 
                 TelegramChat::where([

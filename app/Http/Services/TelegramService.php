@@ -74,12 +74,12 @@ class TelegramService extends BaseService
             if (!empty($replyInlineMarkup)) {
                 $answer['reply_markup'] = $replyInlineMarkup;
 
-                Log::info('debug:', $answer);
+//                Log::info('debug:', $answer);
             }
 
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/' . $method[$type], $answer);
 
-            Log::info($response);
+//            Log::info($response);
 
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -111,12 +111,12 @@ class TelegramService extends BaseService
             if (!empty($replyInlineMarkup)) {
                 $answer['reply_markup'] = $replyInlineMarkup;
 
-                Log::info('debug:', $answer);
+//                Log::info('debug:', $answer);
             }
 
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/editMessageText', $answer);
 
-            Log::info($response);
+//            Log::info($response);
 
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -136,7 +136,7 @@ class TelegramService extends BaseService
 
         self::$key = $key;
 
-//        Log::info('info: ', ['token'=>self::$bot_token, 'name'=>self::$bot_name]);
+        Log::info('info: ', ['token'=>self::$bot_token, 'name'=>self::$bot_name, 'key'=>self::$key]);
 
         return self::$method($params);
     }
@@ -213,6 +213,8 @@ class TelegramService extends BaseService
 
                     if ($answer) {
                         $text .= $answer . PHP_EOL;
+                    }else{
+                        $text .= '无返回内容，也许你得换个话题' . PHP_EOL;
                     }
 
                     Log::info(self::$bot_name . ': ' . $text);
@@ -287,7 +289,7 @@ class TelegramService extends BaseService
 
                     self::$chat_id = $params['message']['chat']['id'];
 
-                    self::sendOrUpdate('tips: 若长时间没有回复，请重新询问' . PHP_EOL . '稍等，回答正在生成中...');
+//                    self::sendOrUpdate('tips: 若长时间没有回复，请重新询问' . PHP_EOL . '稍等，回答正在生成中...');
 
                     $response = Http::acceptJson()->timeout(300)->post('http://127.0.0.1:8000/ask', $arr);
 
@@ -326,8 +328,8 @@ class TelegramService extends BaseService
 
                     Log::info(self::$bot_name . ': ' . $json['response']);
 
-                    return self::sendOrUpdate($json['response']);
-//                    self::sendTelegram($json['response'], $params['message']['chat']['id']);
+//                    return self::sendOrUpdate($json['response']);
+                    return self::sendTelegram($json['response'], $params['message']['chat']['id']);
                 } catch (BadResponseException $exception) {
 //                    if (isset($arr['conversation_id'])) {
 //                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
@@ -340,7 +342,8 @@ class TelegramService extends BaseService
 //                        ])->update(['recycle' => 1]);
 //                    }
 
-                    return self::sendOrUpdate($exception->getResponse()->getBody());
+//                    return self::sendOrUpdate($exception->getResponse()->getBody());
+                    return self::sendTelegram($exception->getResponse()->getBody(), $params['message']['chat']['id']);
                 } catch (\Exception $exception) {
                     Log::info($exception->getMessage() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
                     Log::info('info:', $json ?? []);
@@ -355,7 +358,8 @@ class TelegramService extends BaseService
 //                        ])->update(['recycle' => 1]);
 //                    }
 
-                    return self::sendOrUpdate($exception->getMessage());
+//                    return self::sendOrUpdate($exception->getMessage());
+                    return self::sendTelegram($exception->getMessage(),$params['message']['chat']['id']);
                 }
             }
         }

@@ -96,7 +96,7 @@ class Progress implements ShouldQueue
                 $text .= $answer . PHP_EOL;
             }
 
-            Log::info($text);
+//            Log::info($text);
 
             $arr = [];
 

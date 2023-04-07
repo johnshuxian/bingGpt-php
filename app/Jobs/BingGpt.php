@@ -44,5 +44,7 @@ class BingGpt implements ShouldQueue
         if ($message_id && $id && Redis::connection()->client()->set('lock:' . $key, 1, ['nx', 'ex'=>300])) {
             TelegramService::getInstance()->telegram($this->params, 'bingGpt', env('TELEGRAM_BOT_TOKEN_1'), env('TELEGRAM_BOT_NAME_1'),$key);
         }
+
+        Redis::client()->del('last_message_id:' . $key);
     }
 }

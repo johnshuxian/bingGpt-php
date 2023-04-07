@@ -41,8 +41,10 @@ class ChatGpt implements ShouldQueue
 
         $key = $message_id . '-' . $id;
 
-        if ($message_id && Redis::connection()->client()->set('lock:' . $key, 1, ['nx', 'ex'=>300])) {
+        if ($message_id && $id && Redis::connection()->client()->set('lock:' . $key, 1, ['nx', 'ex'=>300])) {
             TelegramService::getInstance()->telegram($this->params, 'chatGpt','','',$key);
         }
+
+        Redis::client()->del('last_message_id:' . $key);
     }
 }

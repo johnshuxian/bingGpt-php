@@ -19,7 +19,7 @@ class BingGptService extends BaseService
      * @var false|mixed
      */
     private mixed $siri_use;
-    private $max_try = 10;
+    private $max_try = 2;
 
     public function __construct()
     {
@@ -226,9 +226,8 @@ class BingGptService extends BaseService
             'numUserMessagesInConversation'    => 0,
         ];
 
-        Redis::connection()->client()->set('last_message_answer:' . TelegramService::$key, json_encode($response), ['ex' => 3600]);
-
         if (!$this->siri_use) {
+            Redis::connection()->client()->set('last_message_answer:' . TelegramService::$key, json_encode($response), ['ex' => 3600]);
             dispatch(new Progress(TelegramService::$bot_name, TelegramService::$bot_token, TelegramService::$chat_id, $response, TelegramService::$key));
         }
 
@@ -333,7 +332,7 @@ class BingGptService extends BaseService
                                         $response['numUserMessagesInConversation']    = $message['item']['throttling']['numUserMessagesInConversation'] ?? 0;
                                     }
 
-                                    $response['answer']              = $answer['text'] ?? '';
+                                    $response['answer']              = $answer['text'] ?? ($answer['spokenText'] ?? '');
                                     $response['adaptive_cards']      = $answer['sourceAttributions'] ?? [];
                                     $response['suggested_responses'] = array_column($answer['suggestedResponses'] ?? [], 'text');
 
@@ -579,7 +578,9 @@ class BingGptService extends BaseService
             $info['data']['adaptive_cards'] = $arr;
         }
 
-        Redis::connection()->client()->del('last_message_answer:' . TelegramService::$key);
+        if(!$this->siri_use){
+            Redis::connection()->client()->del('last_message_answer:' . TelegramService::$key);
+        }
 
         return $info;
     }
