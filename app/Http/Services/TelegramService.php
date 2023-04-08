@@ -66,20 +66,20 @@ class TelegramService extends BaseService
                 $answer['caption'] = $prompt;
             }
             // 转译telegram特殊字符
-//                $answer[$type] = '```' . PHP_EOL . str_replace(['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'], ['\\_', '\\*', '\\[', '\\]', '\\(', '\\)', '\\~', '\\`', '\\>', '\\#', '\\+', '\\-', '\\=', '\\|', '\\{', '\\}', '\\.', '\\!'], $answer[$type]) . PHP_EOL . '```';
-//                $answer[$type] = '```' . $answer[$type] . PHP_EOL . '```';
-//
-//                $answer['parse_mode'] = 'MarkdownV2';
+            //                $answer[$type] = '```' . PHP_EOL . str_replace(['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'], ['\\_', '\\*', '\\[', '\\]', '\\(', '\\)', '\\~', '\\`', '\\>', '\\#', '\\+', '\\-', '\\=', '\\|', '\\{', '\\}', '\\.', '\\!'], $answer[$type]) . PHP_EOL . '```';
+            //                $answer[$type] = '```' . $answer[$type] . PHP_EOL . '```';
+            //
+            //                $answer['parse_mode'] = 'MarkdownV2';
 
             if (!empty($replyInlineMarkup)) {
                 $answer['reply_markup'] = $replyInlineMarkup;
 
-//                Log::info('debug:', $answer);
+                //                Log::info('debug:', $answer);
             }
 
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/' . $method[$type], $answer);
 
-//            Log::info($response);
+            //            Log::info($response);
 
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -103,20 +103,20 @@ class TelegramService extends BaseService
             ];
 
             // 转译telegram特殊字符
-//            $answer['text'] = '```' . PHP_EOL . str_replace(['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'], ['\\_', '\\*', '\\[', '\\]', '\\(', '\\)', '\\~', '\\`', '\\>', '\\#', '\\+', '\\-', '\\=', '\\|', '\\{', '\\}', '\\.', '\\!'], $answer['text']) . PHP_EOL . '```';
-//            $answer['text'] = '```' . $answer['text'] . PHP_EOL . '```';
+            //            $answer['text'] = '```' . PHP_EOL . str_replace(['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'], ['\\_', '\\*', '\\[', '\\]', '\\(', '\\)', '\\~', '\\`', '\\>', '\\#', '\\+', '\\-', '\\=', '\\|', '\\{', '\\}', '\\.', '\\!'], $answer['text']) . PHP_EOL . '```';
+            //            $answer['text'] = '```' . $answer['text'] . PHP_EOL . '```';
 
-//            $answer['parse_mode'] = 'MarkdownV2';
+            //            $answer['parse_mode'] = 'MarkdownV2';
 
             if (!empty($replyInlineMarkup)) {
                 $answer['reply_markup'] = $replyInlineMarkup;
 
-//                Log::info('debug:', $answer);
+                //                Log::info('debug:', $answer);
             }
 
             $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/editMessageText', $answer);
 
-//            Log::info($response);
+            //            Log::info($response);
 
             return ['code' => 1, 'message' => '', 'data' => $response->json()];
         } catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -136,7 +136,7 @@ class TelegramService extends BaseService
 
         self::$key = $key;
 
-        Log::info('info: ', ['token'=>self::$bot_token, 'name'=>self::$bot_name, 'key'=>self::$key]);
+        Log::info('info: ', ['token' => self::$bot_token, 'name' => self::$bot_name, 'key' => self::$key]);
 
         return self::$method($params);
     }
@@ -213,7 +213,7 @@ class TelegramService extends BaseService
 
                     if ($answer) {
                         $text .= $answer . PHP_EOL;
-                    }else{
+                    } else {
                         $text .= '无返回内容，也许你得换个话题' . PHP_EOL;
                     }
 
@@ -289,7 +289,7 @@ class TelegramService extends BaseService
 
                     self::$chat_id = $params['message']['chat']['id'];
 
-//                    self::sendOrUpdate('tips: 若长时间没有回复，请重新询问' . PHP_EOL . '稍等，回答正在生成中...');
+                    //                    self::sendOrUpdate('tips: 若长时间没有回复，请重新询问' . PHP_EOL . '稍等，回答正在生成中...');
 
                     $response = Http::acceptJson()->timeout(300)->post('http://127.0.0.1:8000/ask', $arr);
 
@@ -328,38 +328,38 @@ class TelegramService extends BaseService
 
                     Log::info(self::$bot_name . ': ' . $json['response']);
 
-//                    return self::sendOrUpdate($json['response']);
+                    //                    return self::sendOrUpdate($json['response']);
                     return self::sendTelegram($json['response'], $params['message']['chat']['id']);
                 } catch (BadResponseException $exception) {
-//                    if (isset($arr['conversation_id'])) {
-//                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
-//                            'conversation_id'=> $arr['conversation_id'],
-//                        ]);
-//
-//                        TelegramChat::where([
-//                            'telegram_chat_id' => $params['message']['chat']['id'],
-//                            'recycle'          => 0,
-//                        ])->update(['recycle' => 1]);
-//                    }
+                    //                    if (isset($arr['conversation_id'])) {
+                    //                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
+                    //                            'conversation_id'=> $arr['conversation_id'],
+                    //                        ]);
+                    //
+                    //                        TelegramChat::where([
+                    //                            'telegram_chat_id' => $params['message']['chat']['id'],
+                    //                            'recycle'          => 0,
+                    //                        ])->update(['recycle' => 1]);
+                    //                    }
 
-//                    return self::sendOrUpdate($exception->getResponse()->getBody());
+                    //                    return self::sendOrUpdate($exception->getResponse()->getBody());
                     return self::sendTelegram($exception->getResponse()->getBody(), $params['message']['chat']['id']);
                 } catch (\Exception $exception) {
                     Log::info($exception->getMessage() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
                     Log::info('info:', $json ?? []);
-//                    if (isset($arr['conversation_id'])) {
-//                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
-//                            'conversation_id'=> $arr['conversation_id'],
-//                        ]);
-//
-//                        TelegramChat::where([
-//                            'telegram_chat_id' => $params['message']['chat']['id'],
-//                            'recycle'          => 0,
-//                        ])->update(['recycle' => 1]);
-//                    }
+                    //                    if (isset($arr['conversation_id'])) {
+                    //                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
+                    //                            'conversation_id'=> $arr['conversation_id'],
+                    //                        ]);
+                    //
+                    //                        TelegramChat::where([
+                    //                            'telegram_chat_id' => $params['message']['chat']['id'],
+                    //                            'recycle'          => 0,
+                    //                        ])->update(['recycle' => 1]);
+                    //                    }
 
-//                    return self::sendOrUpdate($exception->getMessage());
-                    return self::sendTelegram($exception->getMessage(),$params['message']['chat']['id']);
+                    //                    return self::sendOrUpdate($exception->getMessage());
+                    return self::sendTelegram($exception->getMessage(), $params['message']['chat']['id']);
                 }
             }
         }
@@ -405,8 +405,8 @@ class TelegramService extends BaseService
 
                     $json = GptService::getInstance()->gpt3('You are very helpful, knowledgeable, and also a great English translator. You tackle our questions with patience and provide detailed explanations, making you a master of English translation.', $chat_id, $text);
 
-                    if (isset($json['error']['message'])) {
-                        return self::sendTelegram($json['error']['message'], $params['message']['chat']['id']);
+                    if (0 == $json['code']) {
+                        return self::sendTelegram($json['answer'], $params['message']['chat']['id']);
                     }
 
                     $chat->record([
@@ -420,7 +420,7 @@ class TelegramService extends BaseService
 
                     $chat->record([
                         'username'         => self::$bot_name,
-                        'content'          => $json['choices'][0]['message']['content'],
+                        'content'          => $json['answer'],
                         'telegram_chat_id' => $params['message']['chat']['id'],
                         'chat_id'          => $chat_id,
                         'chat_type'        => $params['message']['chat']['type'],
@@ -428,11 +428,11 @@ class TelegramService extends BaseService
                     ]);
                     Log::info($username . ': ' . $text);
 
-                    Log::info(self::$bot_name . ': ' . $json['choices'][0]['message']['content']);
+                    Log::info(self::$bot_name . ': ' . $json['answer']);
 
-                    $tokens = $json['usage']['total_tokens'];
+                    $tokens = $json['total_tokens'];
 
-                    $text = '该轮会话剩余可用字数: ' . (4096 - $tokens) . PHP_EOL . $json['choices'][0]['message']['content'];
+                    $text = '该轮会话剩余可用字数: ' . (4096 - $tokens) . PHP_EOL . $json['answer'];
 
                     self::sendTelegram($text, $params['message']['chat']['id']);
                 } catch (BadResponseException $exception) {

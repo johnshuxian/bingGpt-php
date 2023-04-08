@@ -279,7 +279,7 @@ class BingGptService extends BaseService
                     return $this->success($response);
                 }
 
-//                Log::info(json_encode($message));
+                //                Log::info(json_encode($message));
 
                 if ($message) {
                     if (isset($message['error'])) {
@@ -341,7 +341,7 @@ class BingGptService extends BaseService
                                     $client->close();
 
                                     if (!$this->siri_use) {
-//                                        Log::info('发送消息：'.TelegramService::$key , $response);
+                                        //                                        Log::info('发送消息：'.TelegramService::$key , $response);
                                         Redis::connection()->client()->set('last_message_answer:' . TelegramService::$key, json_encode($response), ['ex' => 3600]);
                                     }
 
@@ -380,11 +380,11 @@ class BingGptService extends BaseService
                             $response['suggested_responses'] = array_column($message['arguments'][0]['messages'][0]['suggestedResponses'] ?? [], 'text');
                         }
 
-//                        Log::info('正在返回答案：' . $response['answer'] ?: $response['adaptive_cards']);
+                        //                        Log::info('正在返回答案：' . $response['answer'] ?: $response['adaptive_cards']);
 
                         if ($response['answer']) {
                             if (!$this->siri_use) {
-//                                Log::info('发送消息：'.TelegramService::$key , $response);
+                                //                                Log::info('发送消息：'.TelegramService::$key , $response);
                                 Redis::connection()->client()->set('last_message_answer:' . TelegramService::$key, json_encode($response), ['ex' => 3600]);
                             }
                         }
@@ -446,7 +446,7 @@ class BingGptService extends BaseService
 
                 if ($response['answer']) {
                     if (!$this->siri_use) {
-//                        Log::info('发送消息：'.TelegramService::$key , $response);
+                        //                        Log::info('发送消息：'.TelegramService::$key , $response);
                         Redis::connection()->client()->set('last_message_answer:' . TelegramService::$key, json_encode($response), ['ex' => 3600]);
                     }
                 }
@@ -571,14 +571,14 @@ class BingGptService extends BaseService
                     [
                         'text'                             => "[推测{$k}] " . $value,
                         'switch_inline_query_current_chat' => $value,
-                    ]
+                    ],
                 ];
             }
 
             $info['data']['adaptive_cards'] = $arr;
         }
 
-        if(!$this->siri_use){
+        if (!$this->siri_use) {
             Redis::connection()->client()->del('last_message_answer:' . TelegramService::$key);
         }
 
