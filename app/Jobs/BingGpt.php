@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Http\Services\BaseService;
 use App\Http\Services\TelegramService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -39,12 +40,12 @@ class BingGpt implements ShouldQueue
         $message_id = $this->params['message']['message_id'] ?? '';
         $id         = $this->params['message']['chat']['id'] ?? 0;
 
-        $key = $message_id . '-' . $id;
+        $key = static::class . $message_id . '-' . $id;
 
         if ($message_id && $id && Redis::connection()->client()->set('lock:' . $key, 1, ['nx', 'ex'=>300])) {
             TelegramService::getInstance()->telegram($this->params, 'bingGpt', env('TELEGRAM_BOT_TOKEN_1'), env('TELEGRAM_BOT_NAME_1'),$key);
         }
 
-        Redis::client()->del('last_message_id:' . $key);
+        BaseService::getInstance()->destroyAll();
     }
 }

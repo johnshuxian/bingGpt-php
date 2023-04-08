@@ -77,7 +77,7 @@ class TelegramService extends BaseService
                 //                Log::info('debug:', $answer);
             }
 
-            $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/' . $method[$type], $answer);
+            $response = Http::acceptJson()->withoutVerifying()->timeout(10)->post('https://api.telegram.org/' . self::$bot_token . '/' . $method[$type], $answer);
 
             //            Log::info($response);
 
@@ -114,7 +114,7 @@ class TelegramService extends BaseService
                 //                Log::info('debug:', $answer);
             }
 
-            $response = Http::acceptJson()->withoutVerifying()->timeout(5)->post('https://api.telegram.org/' . self::$bot_token . '/editMessageText', $answer);
+            $response = Http::acceptJson()->withoutVerifying()->timeout(10)->post('https://api.telegram.org/' . self::$bot_token . '/editMessageText', $answer);
 
             //            Log::info($response);
 
@@ -136,7 +136,9 @@ class TelegramService extends BaseService
 
         self::$key = $key;
 
-        Log::info('info: ', ['token' => self::$bot_token, 'name' => self::$bot_name, 'key' => self::$key]);
+        self::$last_message_id = 0;
+
+        Log::info('info: ', ['token' => self::$bot_token, 'name' => self::$bot_name, 'key' => self::$key, 'last_message_id' => self::$last_message_id]);
 
         return self::$method($params);
     }
@@ -254,55 +256,51 @@ class TelegramService extends BaseService
 
                 $username = $params['message']['from']['username'] ?? ($params['message']['from']['first_name'] . '-' . $params['message']['from']['last_name']);
 
+                ChatGptService::getInstance()->addAccount(config('chat_gpt.access_token'));
+
                 $chat_id = TelegramChat::getLastChatId($params['message']['chat']['id'], self::$bot_name, false);
 
-                $arr = [
-                    'prompt' => $text,
-                ];
+                $conversation_id = null;
 
                 if ($chat_id) {
-                    $gpt = ChatConversations::select('conversation_id', 'parent_id')->where('id', $chat_id)->first();
-
-                    if ($gpt) {
-                        $arr = array_merge($arr, $gpt->toArray());
-                    } else {
-                        $chat_id = 0;
-                    }
+                    $gpt             = ChatConversations::find($chat_id);
+                    $conversation_id = $gpt->conversation_id ?? '';
                 }
 
+                self::$chat_id = $params['message']['chat']['id'];
+
                 try {
-                    if (preg_match('/^ok$/i', $text) && isset($arr['conversation_id'])) {
+                    if (preg_match('/^ok$/i', $text) && $conversation_id) {
                         // 手动结束对话
-
-                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
-                            'conversation_id' => $arr['conversation_id'],
-                        ]);
-
                         TelegramChat::where([
                             'telegram_chat_id' => $params['message']['chat']['id'],
                             'username'         => self::$bot_name,
                             'recycle'          => 0,
                         ])->update(['recycle' => 1]);
 
-                        return self::sendTelegram('已手动结束本轮对话', $params['message']['chat']['id']);
-                    }
+                        self::sendOrUpdate('已手动结束本轮对话');
 
-                    self::$chat_id = $params['message']['chat']['id'];
+                        ChatGptService::getInstance()->deleteConversation($conversation_id);
+
+                        return true;
+                    }
 
                     //                    self::sendOrUpdate('tips: 若长时间没有回复，请重新询问' . PHP_EOL . '稍等，回答正在生成中...');
 
-                    $response = Http::acceptJson()->timeout(300)->post('http://127.0.0.1:8000/ask', $arr);
+                    $answer = [];
 
-                    $json = $response->json();
+                    foreach (ChatGptService::getInstance()->ask($text, $conversation_id, null, null, true) as $value) {
+                        $answer = $value;
 
-                    if (!isset($json['response'])) {
-                        return self::sendTelegram($response->body(), $params['message']['chat']['id']);
+                        if ($answer['answer'] && Redis::connection()->client()->set('chat_gpt_update:' . self::$key, 1, ['nx', 'ex' => 5])) {
+                            self::sendOrUpdate($answer['answer']);
+                        }
                     }
 
                     $gpt = 0;
 
-                    if (isset($json['data']['conversation_id'])) {
-                        $gpt = ChatConversations::record($json['data']['conversation_id'], $json['data']['parent_id'] ?? 0);
+                    if (isset($answer['conversation_id'])) {
+                        $gpt = ChatConversations::record($answer['conversation_id'], $answer['id']);
 
                         $gpt = $gpt->id;
                     }
@@ -318,7 +316,7 @@ class TelegramService extends BaseService
 
                     $chat->record([
                         'username'         => self::$bot_name,
-                        'content'          => $json['response'],
+                        'content'          => $answer['answer'],
                         'telegram_chat_id' => $params['message']['chat']['id'],
                         'chat_id'          => $gpt,
                         'chat_type'        => $params['message']['chat']['type'],
@@ -326,10 +324,10 @@ class TelegramService extends BaseService
                     ]);
                     Log::info($username . ': ' . $text);
 
-                    Log::info(self::$bot_name . ': ' . $json['response']);
+                    Log::info(self::$bot_name . ': ' . $answer['answer']);
 
                     //                    return self::sendOrUpdate($json['response']);
-                    return self::sendTelegram($json['response'], $params['message']['chat']['id']);
+                    return self::sendOrUpdate($answer['answer']);
                 } catch (BadResponseException $exception) {
                     //                    if (isset($arr['conversation_id'])) {
                     //                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
@@ -343,10 +341,10 @@ class TelegramService extends BaseService
                     //                    }
 
                     //                    return self::sendOrUpdate($exception->getResponse()->getBody());
-                    return self::sendTelegram($exception->getResponse()->getBody(), $params['message']['chat']['id']);
+                    return self::sendOrUpdate($exception->getResponse()->getBody() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
                 } catch (\Exception $exception) {
                     Log::info($exception->getMessage() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
-                    Log::info('info:', $json ?? []);
+                    Log::info('info:', $answer ?? []);
                     //                    if (isset($arr['conversation_id'])) {
                     //                        $response = Http::acceptJson()->timeout(300)->get('http://127.0.0.1:8000/delete', [
                     //                            'conversation_id'=> $arr['conversation_id'],
@@ -359,7 +357,7 @@ class TelegramService extends BaseService
                     //                    }
 
                     //                    return self::sendOrUpdate($exception->getMessage());
-                    return self::sendTelegram($exception->getMessage(), $params['message']['chat']['id']);
+                    return self::sendOrUpdate($exception->getMessage() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
                 }
             }
         }
@@ -453,7 +451,7 @@ class TelegramService extends BaseService
 
     public static function sendOrUpdate($content, $type = 'text', $adaptive_cards = [])
     {
-        $last_message_id = Redis::client()->get('last_message_id:' . self::$key);
+        $last_message_id = Redis::connection()->client()->get('last_message_id:' . self::$key);
 
         if ($last_message_id) {
             self::$last_message_id = $last_message_id;
@@ -468,6 +466,8 @@ class TelegramService extends BaseService
         } else {
             $data = self::updateTelegram($content, self::$chat_id, self::$last_message_id, $adaptive_cards);
         }
+
+        Log::info('sendOrUpdate:', $data);
 
         return $data;
     }

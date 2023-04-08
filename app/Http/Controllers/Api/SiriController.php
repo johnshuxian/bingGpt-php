@@ -24,12 +24,12 @@ class SiriController extends Controller
 
         if (!$token) {
             return [
-                'answer'=> '请在快捷方式中设置自己的token',
+                'answer' => '请在快捷方式中设置自己的token',
             ];
         }
 
         return [
-            'answer'=> SiriService::getInstance()->siri($siri_id, $text, $token, $system),
+            'answer' => SiriService::getInstance()->siri($siri_id, $text, $token, $system),
         ];
     }
 
@@ -43,8 +43,8 @@ class SiriController extends Controller
 
         if (!in_array($siri_id, array_keys(config('telegram.siri')))) {
             return [
-                'code'  => 0,
-                'answer'=> '未授权的账号',
+                'code'   => 0,
+                'answer' => '未授权的账号',
             ];
         }
 
@@ -52,16 +52,16 @@ class SiriController extends Controller
 
         if (!$token) {
             return [
-                'code'  => 0,
-                'answer'=> '请在快捷方式中设置自己的token',
+                'code'   => 0,
+                'answer' => '请在快捷方式中设置自己的token',
             ];
         }
 
         list($code, $answer) = SiriService::getInstance()->ask($text, $token, $system);
 
         return [
-            'code'  => $code,
-            'answer'=> $answer,
+            'code'   => $code,
+            'answer' => $answer,
         ];
     }
 
@@ -71,14 +71,32 @@ class SiriController extends Controller
 
         $text = $request->input('text', '你好');
 
-//        $system = $request->input('system', '可靠的生活小助手，耐心，会非常详细的回答我的问题');
+        //        $system = $request->input('system', '可靠的生活小助手，耐心，会非常详细的回答我的问题');
 
         if (!in_array($siri_id, array_keys(config('telegram.siri')))) {
             return $this->fail([201, '未授权的账号']);
         }
 
         return [
-            'answer'=> SiriService::getInstance()->bing($siri_id, $text),
+            'answer' => SiriService::getInstance()->bing($siri_id, $text),
+        ];
+    }
+
+    public function chatGpt(Request $request)
+    {
+        $siri_id = $request->input('uuid', '');
+
+        $text = $request->input('text', '你好');
+
+        if (!in_array($siri_id, array_keys(config('telegram.siri')))) {
+            return [
+                'code'   => 0,
+                'answer' => '未授权的账号',
+            ];
+        }
+
+        return [
+            'answer' => SiriService::getInstance()->chatGpt($siri_id, $text),
         ];
     }
 }

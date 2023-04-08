@@ -207,4 +207,99 @@ class SiriService extends BaseService
 
         return [$answer['code'], $answer['answer']];
     }
+
+    public function chatGpt(mixed $siri_id, mixed $text)
+    {
+        self::$bot_name = 'siri_003';
+
+        ChatGptService::getInstance()->addAccount(config('chat_gpt.access_token'));
+
+        $chat_id = TelegramChat::getLastChatId($siri_id, self::$bot_name, false);
+
+        $conversation_id = null;
+
+        if ($chat_id) {
+            $gpt             = ChatConversations::find($chat_id);
+            $conversation_id = $gpt->conversation_id ?? '';
+        }
+
+        if (preg_match('/^ok$/i', $text)) {
+            // 手动结束对话
+
+            TelegramChat::where([
+                'telegram_chat_id' => $siri_id,
+                'username'         => self::$bot_name,
+                'recycle'          => 0,
+            ])->update(['recycle' => 1]);
+
+            try {
+                if ($conversation_id) {
+                    ChatGptService::getInstance()->deleteConversation($conversation_id);
+                }
+            } catch (\Exception $exception) {
+                Log::info($exception->getMessage() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
+
+                return '已手动结束本轮对话:' . $exception->getMessage();
+            }
+
+            return '已手动结束本轮对话';
+        }
+
+        $bot_name = self::$bot_name;
+
+        $chat = new TelegramChat();
+
+        try {
+
+            $answer = [];
+
+            foreach (ChatGptService::getInstance()->ask($text, $conversation_id, null, null, false) as $value) {
+                $answer = $value;
+
+                break;
+            }
+
+            // 记录conversation_id
+            if (null == $conversation_id) {
+                $gpt     = ChatConversations::record($answer['conversation_id'], $answer['id']);
+                $chat_id = $gpt->id;
+            }
+
+            Log::info(self::$bot_name . ': ' . $answer['answer']);
+
+            if (config('telegram.siri')[$siri_id]) {
+                dispatch(new Send(env('TELEGRAM_BOT_NAME'), env('TELEGRAM_BOT_TOKEN'), config('telegram.siri')[$siri_id], 'you：' . $text . PHP_EOL . 'siri：' . $answer['answer']));
+            }
+
+            $chat->record([
+                'username'         => 'johns',
+                'content'          => $text,
+                'telegram_chat_id' => $siri_id,
+                'chat_id'          => $chat_id,
+                'chat_type'        => 'private',
+                'is_bot'           => 0,
+            ]);
+
+            $chat->record([
+                'username'         => self::$bot_name,
+                'content'          => $answer['answer'],
+                'telegram_chat_id' => $siri_id,
+                'chat_id'          => $chat_id,
+                'chat_type'        => 'private',
+                'is_bot'           => 1,
+            ]);
+            Log::info('johns: ' . $text);
+
+            Log::info(self::$bot_name . ': ' . $answer['answer']);
+
+            return $answer['answer'];
+        } catch (BadResponseException $exception) {
+            return $exception->getResponse()->getBody();
+        } catch (\Exception $exception) {
+            Log::info($exception->getMessage() . ' in ' . $exception->getFile() . ' at ' . $exception->getLine());
+            Log::info('info:', $json ?? []);
+
+            return $exception->getMessage();
+        }
+    }
 }

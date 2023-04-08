@@ -578,10 +578,6 @@ class BingGptService extends BaseService
             $info['data']['adaptive_cards'] = $arr;
         }
 
-        if (!$this->siri_use) {
-            Redis::connection()->client()->del('last_message_answer:' . TelegramService::$key);
-        }
-
         return $info;
     }
 }
