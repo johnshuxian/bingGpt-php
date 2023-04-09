@@ -118,7 +118,7 @@ class ChatGptService extends BaseService
                     'headers' => [
                         'Authorization' => $token,
                         'Content-Type'  => 'application/json',
-                        'User-Agent'    => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.63',
+                        'User-Agent'    => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.34',
                         'Referer'       => 'https://chat.openai.com/chat',
                     ],
                 ]);
@@ -162,7 +162,7 @@ class ChatGptService extends BaseService
                         'Authorization'             => $token,
                         'Accept'                    => 'text/event-stream',
                         'Content-Type'              => 'application/json',
-                        'User-Agent'                => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.63',
+                        'User-Agent'                => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.34',
                         'X-Openai-Assistant-App-Id' => '',
                         'Connection'                => 'close',
                         'Accept-Language'           => 'en-US,en;q=0.9',
@@ -278,7 +278,7 @@ class ChatGptService extends BaseService
             $response = $this->http->get('conversations', [
                 'headers' => [
                     'Authorization' => $token,
-                    'User-Agent'    => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.63',
+                    'User-Agent'    => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.34',
                     'Referer'       => 'https://chat.openai.com/chat',
                 ],
                 'query'   => [
@@ -321,7 +321,7 @@ class ChatGptService extends BaseService
             $response = $this->http->get('conversation/' . $conversationId, [
                 'headers' => [
                     'Authorization' => $token,
-                    'User-Agent'    => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.63',
+                    'User-Agent'    => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.34',
                     'Referer'       => 'https://chat.openai.com/chat',
                 ],
             ])->getBody()->getContents();
@@ -356,7 +356,7 @@ class ChatGptService extends BaseService
             $response = $this->http->post('conversation/gen_title/' . $conversationId, [
                 'headers' => [
                     'Authorization' => $token,
-                    'User-Agent'    => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.63',
+                    'User-Agent'    => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.34',
                     'Referer'       => 'https://chat.openai.com/chat',
                 ],
                 'json'    => [
@@ -399,7 +399,7 @@ class ChatGptService extends BaseService
             $response = $this->http->patch('conversation/' . $conversationId, [
                 'headers' => [
                     'Authorization' => $token,
-                    'User-Agent'    => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.63',
+                    'User-Agent'    => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.34',
                     'Referer'       => 'https://chat.openai.com/chat',
                 ],
                 'json'    => [
@@ -441,7 +441,7 @@ class ChatGptService extends BaseService
             $response = $this->http->patch('conversation/' . $conversationId, [
                 'headers' => [
                     'Authorization' => $token,
-                    'User-Agent'    => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.63',
+                    'User-Agent'    => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.34',
                     'Referer'       => 'https://chat.openai.com/chat',
                 ],
                 'json'    => [
@@ -483,7 +483,7 @@ class ChatGptService extends BaseService
             $response = $this->http->patch('conversations', [
                 'headers' => [
                     'Authorization' => $token,
-                    'User-Agent'    => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.63',
+                    'User-Agent'    => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.34',
                     'Referer'       => 'https://chat.openai.com/chat',
                 ],
                 'json'    => [
