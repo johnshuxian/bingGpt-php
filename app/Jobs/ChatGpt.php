@@ -41,6 +41,8 @@ class ChatGpt implements ShouldQueue
         if (!Redis::connection()->client()->set('lock:' . static::class, 1, ['nx', 'ex' => 60])) {
             // 如果有任务正在执行，延迟10秒再执行
             dispatch(new static($this->params))->delay(now()->addSeconds(5));
+
+            return true;
         }
 
         $message_id = $this->params['message']['message_id'] ?? '';
