@@ -16,7 +16,7 @@ class WxController
 
         $message['xml'] = file_get_contents('php://input');
 
-        $service = new WxService('0DFMKAC14myLewy','LQs5i0xoMOCZ1VU0HtnZ1fSmYYDkHG','FeRhS1BYFiyEcDpJoyNGCHII6T4KMBXGnlmpPQPECgP');
+        $service = new WxService();
 
         $info = $service->decryptMsg($message);
 
