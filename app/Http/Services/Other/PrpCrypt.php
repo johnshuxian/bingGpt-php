@@ -2,6 +2,8 @@
 
 namespace App\Http\Services\Other;
 
+use Illuminate\Support\Facades\Log;
+
 class PrpCrypt
 {
     public $key;
@@ -17,7 +19,7 @@ class PrpCrypt
      * @param string $text  需要加密的明文
      * @param mixed  $appid
      *
-     * @return string 加密后的密文
+     * @return array 加密后的密文
      */
     public function encrypt($text, $appid)
     {
@@ -37,7 +39,8 @@ class PrpCrypt
             // print(base64_encode($encrypted));
             // 使用BASE64对加密后的字符串进行编码
             return [ErrorCode::$OK, base64_encode($encrypted)];
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
+            Log::error($e->getMessage() . ' in ' . $e->getLine() . ' at ' . $e->getFile());
             // print $e;
             return [ErrorCode::$EncryptAESError, null];
         }

@@ -3,6 +3,8 @@
 namespace App\Http\Services\Other;
 
 use App\Http\Services\BaseService;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class WxService extends BaseService
 {
@@ -55,6 +57,19 @@ class WxService extends BaseService
         return false;
     }
 
+    public function decrypt($encrypted)
+    {
+        list($code, $info) = (new PrpCrypt($this->key))->decrypt($encrypted, $this->appid);
+
+        if (0 == $code) {
+            $info = simplexml_load_string($info, 'SimpleXMLElement', LIBXML_NOCDATA);
+
+            $info = json_decode(json_encode($info), true);
+        }
+
+        return [$code, $info];
+    }
+
     /**
      * 解密.
      *
@@ -78,5 +93,29 @@ class WxService extends BaseService
         }
 
         return [$return, json_decode($msg, true)];
+    }
+
+    public function send(mixed $answer, mixed $userid, mixed $channel)
+    {
+        $data = <<<EOF
+            <xml>
+                <openid>{$userid}</openid>
+                <msg>{$answer}</msg>
+                <channel>{$channel}</channel>
+                <kefuname>chatGpt</kefuname>
+            </xml>
+            EOF;
+
+        $encrypt = (new PrpCrypt($this->key))->encrypt($data, $this->appid)[1];
+
+        $info =  Http::withHeaders([
+            'Content-Type' => 'application/json',
+        ])->timeout(10)->post('https://chatbot.weixin.qq.com/openapi/sendmsg/' . $this->token, [
+            'encrypt' => $encrypt,
+        ]);
+
+        Log::info('send:' . $info->body());
+
+        return $info;
     }
 }

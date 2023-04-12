@@ -40,7 +40,7 @@ Route::namespace('Api')->group(function () {
 
     Route::post('siri/gpt', [\App\Http\Controllers\Api\SiriController::class,'chatGpt'])->name('gpt_bing');
 
-    Route::any('wx', [\App\Http\Controllers\Api\WxController::class,'index'])->name('wx_index');
+    Route::post('wx/{bot}', [\App\Http\Controllers\Api\WxController::class,'index'])->name('wx_index');
 
 //    Route::any('telegram/bing', [TelegramController::class,'bing'])->name('telegram_bing');
 

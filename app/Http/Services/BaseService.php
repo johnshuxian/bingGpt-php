@@ -17,7 +17,7 @@ class BaseService
      */
     public static $instance_pools = [];
 
-    public static function getInstance(): static
+    public static function getInstance(...$params): static
     {
         Log::info('getInstance ' . static::class, ['is_null' => is_null(static::$instance)]);
 
@@ -27,7 +27,7 @@ class BaseService
             return static::$instance;
         }
 
-        static::$instance = new static();
+        static::$instance = new static(...$params);
 
         self::$instance_pools[static::class] = static::$instance;
 

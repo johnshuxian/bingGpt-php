@@ -17,9 +17,9 @@ class SiriService extends BaseService
         parent::__construct();
     }
 
-    public function siri($siri_id, $text, $token = '', $system = '')
+    public function gpt3($siri_id, $text, $token = '', $system = '', $bot_name = 'siri_001', $username = 'johns', $notify = true)
     {
-        self::$bot_name = 'siri_001';
+        self::$bot_name = $bot_name;
 
         if (preg_match('/^ok$/i', $text)) {
             // 手动结束对话
@@ -52,7 +52,7 @@ class SiriService extends BaseService
             if (0 == $json['code']) {
                 Log::info(self::$bot_name . ': ' . $json['answer']);
 
-                if (config('telegram.siri')[$siri_id]) {
+                if ($notify && config('telegram.siri')[$siri_id]) {
                     dispatch(new Send(env('TELEGRAM_BOT_NAME_2'), env('TELEGRAM_BOT_TOKEN_2'), config('telegram.siri')[$siri_id], 'you：' . $text . PHP_EOL . 'siri：' . $json['answer']));
                 }
 
@@ -60,7 +60,7 @@ class SiriService extends BaseService
             }
 
             $chat->record([
-                'username'         => 'johns',
+                'username'         => $username,
                 'content'          => $text,
                 'telegram_chat_id' => $siri_id,
                 'chat_id'          => $chat_id,
@@ -76,7 +76,7 @@ class SiriService extends BaseService
                 'chat_type'        => 'private',
                 'is_bot'           => 1,
             ]);
-            Log::info('johns: ' . $text);
+            Log::info($username . ': ' . $text);
 
             Log::info(self::$bot_name . ': ' . $json['answer']);
 
@@ -107,9 +107,9 @@ class SiriService extends BaseService
         }
     }
 
-    public function bing($siri_id, $text, $token = '', $system = '')
+    public function bing($siri_id, $text, $token = '', $system = '', $bot_name = 'siri_002', $username = 'johns', $notify = true)
     {
-        self::$bot_name = 'siri_002';
+        self::$bot_name = $bot_name;
 
         if (preg_match('/^ok$/i', $text)) {
             // 手动结束对话
@@ -153,7 +153,7 @@ class SiriService extends BaseService
             }
 
             $chat->record([
-                'username'         => 'johns',
+                'username'         => $username,
                 'content'          => $text,
                 'telegram_chat_id' => $siri_id,
                 'bing_id'          => $chat_id,
@@ -170,7 +170,7 @@ class SiriService extends BaseService
                 'is_bot'           => 1,
             ]);
 
-            Log::info('johns: ' . $text);
+            Log::info($username . ': ' . $text);
 
             Log::info(self::$bot_name . ': ' . $answer);
 
@@ -186,7 +186,7 @@ class SiriService extends BaseService
                 ])->update(['recycle' => 1]);
             }
 
-            if (config('telegram.siri')[$siri_id]) {
+            if ($notify && config('telegram.siri')[$siri_id]) {
                 dispatch(new Send(env('TELEGRAM_BOT_NAME_1'), env('TELEGRAM_BOT_TOKEN_1'), config('telegram.siri')[$siri_id], 'you：' . $text . PHP_EOL . 'siri：' . $answer));
             }
 
@@ -208,9 +208,9 @@ class SiriService extends BaseService
         return [$answer['code'], $answer['answer']];
     }
 
-    public function chatGpt(mixed $siri_id, mixed $text)
+    public function chatGpt(mixed $siri_id, mixed $text, $bot_name = 'siri_003', $notify = true, $username = 'johns')
     {
-        self::$bot_name = 'siri_003';
+        self::$bot_name = $bot_name;
 
         ChatGptService::getInstance()->addAccount(config('chat_gpt.access_token'));
 
@@ -250,7 +250,6 @@ class SiriService extends BaseService
         $chat = new TelegramChat();
 
         try {
-
             $answer = [];
 
             foreach (ChatGptService::getInstance()->ask($text, $conversation_id, null, null, false) as $value) {
@@ -265,14 +264,14 @@ class SiriService extends BaseService
                 $chat_id = $gpt->id;
             }
 
-            Log::info(self::$bot_name . ': ' . $answer['answer']);
+//            Log::info(self::$bot_name . ': ' . $answer['answer']);
 
-            if (config('telegram.siri')[$siri_id]) {
+            if ($notify && config('telegram.siri')[$siri_id]) {
                 dispatch(new Send(env('TELEGRAM_BOT_NAME'), env('TELEGRAM_BOT_TOKEN'), config('telegram.siri')[$siri_id], 'you：' . $text . PHP_EOL . 'siri：' . $answer['answer']));
             }
 
             $chat->record([
-                'username'         => 'johns',
+                'username'         => $username,
                 'content'          => $text,
                 'telegram_chat_id' => $siri_id,
                 'chat_id'          => $chat_id,
@@ -288,7 +287,7 @@ class SiriService extends BaseService
                 'chat_type'        => 'private',
                 'is_bot'           => 1,
             ]);
-            Log::info('johns: ' . $text);
+            Log::info($username . ': ' . $text);
 
             Log::info(self::$bot_name . ': ' . $answer['answer']);
 

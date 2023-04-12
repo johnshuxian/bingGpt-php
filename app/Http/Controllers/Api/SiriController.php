@@ -29,7 +29,7 @@ class SiriController extends Controller
         }
 
         return [
-            'answer' => SiriService::getInstance()->siri($siri_id, $text, $token, $system),
+            'answer' => SiriService::getInstance()->gpt3($siri_id, $text, $token, $system),
         ];
     }
 

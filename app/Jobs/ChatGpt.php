@@ -38,7 +38,7 @@ class ChatGpt implements ShouldQueue
     public function handle()
     {
         // 一次只能执行一个任务
-        if (!Redis::connection()->client()->set('lock:' . static::class, 1, ['nx', 'ex' => 60])) {
+        if (!Redis::connection()->client()->set('lock:chatGpt', 1, ['nx', 'ex' => 120])) {
             // 如果有任务正在执行，延迟10秒再执行
             dispatch(new static($this->params))->delay(now()->addSeconds(5));
 
@@ -55,7 +55,7 @@ class ChatGpt implements ShouldQueue
         }
 
         // 释放锁
-        Redis::connection()->client()->del('lock:' . static::class);
+        Redis::connection()->client()->del('lock:chatGpt');
 
         BaseService::getInstance()->destroyAll();
     }
