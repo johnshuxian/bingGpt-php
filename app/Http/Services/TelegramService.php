@@ -300,7 +300,7 @@ class TelegramService extends BaseService
                     $gpt = 0;
 
                     if (isset($answer['conversation_id'])) {
-                        $gpt = ChatConversations::record($answer['conversation_id'], $answer['id']);
+                        $gpt = ChatConversations::record($answer['conversation_id'], $answer['id'], config('telegram.title')[$params['message']['chat']['id']] ?? '');
 
                         $gpt = $gpt->id;
                     }

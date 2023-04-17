@@ -260,7 +260,7 @@ class SiriService extends BaseService
 
             // 记录conversation_id
             if (null == $conversation_id) {
-                $gpt     = ChatConversations::record($answer['conversation_id'], $answer['id']);
+                $gpt     = ChatConversations::record($answer['conversation_id'], $answer['id'], config('telegram.title')[$siri_id] ?? '');
                 $chat_id = $gpt->id;
             }
 
